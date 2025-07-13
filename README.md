@@ -30,18 +30,6 @@ We use this to test the optimization process without running the computationally
 
 ### Architecture
 
-### Parameters
-
-The mock simulation uses **5 optimization parameters**:
-
-| Parameter | Purpose                    | Optimal Value | Target Control                  |
-| --------- | -------------------------- | ------------- | ------------------------------- |
-| `p0`      | Cell count control at 72h  | 1.0           | Fibroblast populations at t=144 |
-| `p1`      | Cell count control at 144h | 1.0           | Fibroblast populations at t=288 |
-| `p2`      | Collagen control at 72h    | 1.0           | Collagen levels at t=144        |
-| `p3`      | Collagen control at 144h   | 1.0           | Collagen levels at t=288        |
-| `p4`      | General scaling factor     | 1.0           | Overall amplitude adjustment    |
-
 ### Target Values
 
 The simulation targets experimental data from three scaffold configurations:
