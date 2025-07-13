@@ -140,18 +140,22 @@ python -m src.calibration.run_rope \
     --bin-dir "$BIN_DIR" \
     --parallel "$PARALLEL"
 
+python -m src.post_calibration.parameter_extraction
 
+python -m src.post_calibration.validation \
+    --param-file "$PROJECT_ROOT/output/rope_abm_optimization.csv" \
+    --run-dir "$RUN_DIR" \
+    --bin-dir "$BIN_DIR" \
+    --config-dir "$CONFIG_DIR" \
+    --exp-data "$EXPERIMENTAL_CSV" \
+    --use-csv 
 
 EXIT_CODE=$?
 
 if [ $EXIT_CODE -eq 0 ]; then
     echo ""
     echo "ROPE optimization completed successfully!"
-    echo "Check the following files in output/ for results:"
-    echo "  - optimization_main.log (main log)"
-    echo "  - optimization_progress.log (progress tracking)"
-    echo "  - optimization_report.json (final report)"
-    echo "  - rope_abm_optimization.csv (SPOTPY results database with best parameter sets, including errors)"
+    echo "Check the output/ directory for logs and results."
 else
     echo ""
     echo "ROPE optimization failed with exit code: $EXIT_CODE"

@@ -162,9 +162,8 @@ def run(ctx,
         main_logger.info(f"Moving database file {db_filename} to output directory")
         shutil.copy(db_filename, output_dir / db_filename)
         main_logger.info(f"Database saved to {output_dir / db_filename}")
-        Path(output_dir / db_filename).unlink()
     
-    main_logger.info("Optimization completed. Check 'optimization_progress.log' for detailed progress tracking.")
+    main_logger.info("Optimization completed. Check 'output/optimization_progress.log' for detailed progress tracking.")
     main_logger.info("Final report saved to 'output/optimization_report.json'.")
     main_logger.info("Main process log saved to 'output/optimization_main.log'.")
 

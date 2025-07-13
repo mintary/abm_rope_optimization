@@ -14,32 +14,26 @@ import shutil
 import logging
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+import click
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any, Union, Mapping
-import csv
-import subprocess
-import platform
-import os
 from scipy import stats
-
-from abm_world.simulation import prepare_sample, run_abm_simulation
-from abm_world.preprocessing import extract_small_scaffold_experimental
-import calibration.constants as constants
-
-from calibration.error_function import normalized_biomarker_error
+from src.abm_world.simulation import prepare_sample, run_abm_simulation
+from src.abm_world.preprocessing import extract_small_scaffold_experimental
+from src.calibration.error_function import normalized_biomarker_error
+import src.calibration.constants as constants
 
 logger = logging.getLogger(__name__)
 
 validation_logger = logging.getLogger(f"{__name__}.validation")
-validation_logger.setLevel(logging.INFO)
+validation_logger.setLevel(logging.DEBUG)
 
 if not validation_logger.handlers:
     log_dir = Path("output/validation")
     log_dir.mkdir(parents=True, exist_ok=True)
     
     file_handler = logging.FileHandler(log_dir / "validation.log", mode='w')
-    file_handler.setLevel(logging.INFO)
+    file_handler.setLevel(logging.DEBUG)
     
     formatter = logging.Formatter(
         '%(asctime)s - VALIDATION - %(message)s',
@@ -58,7 +52,7 @@ def run_multiple_validations(
         config_file_dir: Path,
         config_files: List[str],
         runs_per_config: int = 3,
-        num_ticks: int = 289,
+        num_ticks: int = 500,
         tracked_biomarkers: List[str] = ["TotalFibroblast", "Collagen"],
         tracked_ticks: List[int] = [constants.TICKS_PER_DAY * 3, constants.TICKS_PER_DAY * 6, constants.TICKS_PER_DAY * 9],
 ) -> Dict[str, Dict[int, Dict[str, List[float]]]]:
@@ -191,7 +185,8 @@ def calculate_validation_metrics(
     metrics: Dict[str, Dict[str, Dict[str, float]]] = {}
 
     validation_logger.info(f"Calculating validation metrics for tick {simulation_validation_tick}")
-
+    validation_logger.debug(f"Simulation results: {simulation_results}")
+    validation_logger.debug(f"Experimental data: {experimental_data}")
     for config_name, config_results in simulation_results.items():
         if config_name not in metrics:
             metrics[config_name] = {}
@@ -200,12 +195,18 @@ def calculate_validation_metrics(
             validation_logger.warning(f"Validation tick {simulation_validation_tick} not found in results for {config_name}")
             continue
 
-        if config_name not in experimental_data or experimental_validation_hour not in experimental_data[config_name]:
-            validation_logger.warning(f"No experimental data for {config_name} at hour {experimental_validation_hour}")
+        # Map simulation config names to experimental config names
+        # Simulation: "Scaffold_GH2" -> Experimental: "GH2"
+        exp_config_name = config_name.replace("Scaffold_", "")
+        
+        validation_logger.debug(f"Mapping simulation config '{config_name}' to experimental config '{exp_config_name}'")
+        
+        if exp_config_name not in experimental_data or experimental_validation_hour not in experimental_data[exp_config_name]:
+            validation_logger.warning(f"No experimental data for {exp_config_name} at hour {experimental_validation_hour}")
             continue
 
         sim_data = config_results[simulation_validation_tick]
-        exp_data = experimental_data[config_name][experimental_validation_hour]
+        exp_data = experimental_data[exp_config_name][experimental_validation_hour]
 
         for biomarker in sim_data:
             if biomarker not in metrics[config_name]:
@@ -223,7 +224,13 @@ def calculate_validation_metrics(
             confidence = 0.95
             n = len(sim_values)
             sem = std_value / np.sqrt(n)
-            ci = stats.t.interval(confidence, n-1, loc=mean_value, scale=sem)
+            
+            # Handle case where std is 0 (all values identical)
+            if std_value == 0 or sem == 0:
+                # When std is 0, CI is just the mean value
+                ci = (mean_value, mean_value)
+            else:
+                ci = stats.t.interval(confidence, n-1, loc=mean_value, scale=sem)
             
             # Store metrics
             metrics[config_name][biomarker] = {
@@ -347,31 +354,106 @@ def run_validation(
     }
 
 
-if __name__ == "__main__":
-    import argparse
+@click.command()
+@click.option('--param-file', '-p', type=click.Path(exists=True, dir_okay=False), required=True,
+              help="Path to file with optimized parameters (JSON or CSV)")
+@click.option('--run-dir', '-r', type=click.Path(exists=True, file_okay=False, dir_okay=True), required=True,
+              help="Directory for simulation runs")
+@click.option('--bin-dir', '-b', type=click.Path(exists=True, file_okay=False, dir_okay=True), required=True,
+              help="Directory containing ABM binaries")
+@click.option('--config-dir', '-c', type=click.Path(exists=True, file_okay=False, dir_okay=True), required=True,
+              help="Directory containing configuration files")
+@click.option('--exp-data', '-e', type=click.Path(exists=True, dir_okay=False), required=True,
+              help="Path to experimental data file")
+@click.option('--runs', type=int, default=3,
+              help="Number of runs per configuration (default: 3)")
+@click.option('--output-dir', '-o', type=click.Path(file_okay=False, dir_okay=True), 
+              default="output/validation", help="Directory to save validation outputs")
+@click.option('--config-files', multiple=True, default=["config_Scaffold_GH2.txt", "config_Scaffold_GH5.txt", "config_Scaffold_GH10.txt"],
+              help="Configuration files to use (can be specified multiple times)")
+@click.option('--use-csv', is_flag=True, 
+              help="Load parameters from CSV file instead of JSON")
+@click.option('--num-params', type=int, default=5,
+              help="Number of parameters in the CSV file (only used with --use-csv)")
+def validate(param_file, run_dir, bin_dir, config_dir, exp_data, runs, output_dir, config_files, use_csv, num_params):
+    """
+    Validate ABM model with optimized parameters.
     
-    parser = argparse.ArgumentParser(description="Validate ABM model with optimized parameters")
-    parser.add_argument("--param-file", type=str, required=True, help="Path to file with optimized parameters")
-    parser.add_argument("--run-dir", type=str, required=True, help="Directory for simulation runs")
-    parser.add_argument("--bin-dir", type=str, required=True, help="Directory containing ABM binaries")
-    parser.add_argument("--config-dir", type=str, required=True, help="Directory containing configuration files")
-    parser.add_argument("--exp-data", type=str, required=True, help="Path to experimental data file")
-    parser.add_argument("--runs", type=int, default=3, help="Number of runs per configuration")
-    parser.add_argument("--output-dir", type=str, default="output/validation", help="Directory to save validation outputs")
+    This command runs validation simulations using optimized parameters from either
+    a JSON file (from parameter extraction) or directly from a CSV file (ROPE output).
+    """
+    import click
     
-    args = parser.parse_args()
+    click.echo("Starting ABM model validation...")
+    click.echo(f"Parameter file: {param_file}")
+    click.echo(f"Using {'CSV' if use_csv else 'JSON'} format")
+    click.echo(f"Runs per configuration: {runs}")
     
-    # Load optimized parameters
-    with open(args.param_file, 'r') as f:
-        parameters = json.load(f)
+    if use_csv:
+        from src.post_calibration.parameter_extraction import extract_parameters_from_csv
+        
+        click.echo("Loading parameters from CSV file...")
+        param_data = extract_parameters_from_csv(param_file, num_parameters=num_params, top_n=1)
+        parameter_values = param_data["best_parameter_set"]
+        
+        click.echo(f"Best parameter set: {parameter_values}")
+        click.echo(f"Error value: {param_data['actual_error_value']:.6f}")
+    else:
+        click.echo("Loading parameters from JSON file...")
+        with open(param_file, 'r') as f:
+            parameters = json.load(f)
+        
+        if "best_parameter_set" in parameters:
+            parameter_values = parameters["best_parameter_set"]
+        elif "best_parameters" in parameters:
+            parameter_values = parameters["best_parameters"][0]
+        else:
+            raise ValueError("Unrecognized parameter file format. Expected 'best_parameter_set' or 'best_parameters' key.")
     
-    # Run validation
-    run_validation(
-        parameter_values=parameters["best_parameters"],
-        subprocess_run_dir=Path(args.run_dir),
-        bin_dir=Path(args.bin_dir),
-        config_file_dir=Path(args.config_dir),
-        experimental_data_file=Path(args.exp_data),
-        runs_per_config=args.runs,
-        output_dir=Path(args.output_dir)
+    click.echo(f"Configuration files: {list(config_files)}")
+    
+    validation_results = run_validation(
+        parameter_values=parameter_values,
+        subprocess_run_dir=Path(run_dir),
+        bin_dir=Path(bin_dir),
+        config_file_dir=Path(config_dir),
+        experimental_data_file=Path(exp_data),
+        config_files=list(config_files),
+        runs_per_config=runs,
+        output_dir=Path(output_dir)
     )
+    
+    click.echo("\n" + "="*50)
+    click.echo("VALIDATION SUMMARY")
+    click.echo("="*50)
+    
+    metrics = validation_results["metrics"]
+    # Save metrics to output directory
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    with open(output_dir / "validation_metrics.json", 'w') as f:
+        json.dump(metrics, f, indent=2)
+    
+    click.echo(f"Validation results saved to: {output_dir / 'validation_results.json'}")
+    click.echo(f"Metrics saved to: {output_dir / 'validation_metrics.json'}")
+
+    for config_name, config_metrics in metrics.items():
+        click.echo(f"\nConfiguration: {config_name}")
+        for biomarker, biomarker_metrics in config_metrics.items():
+            mean_val = biomarker_metrics['mean']
+            exp_val = biomarker_metrics['experimental']
+            rel_error = biomarker_metrics['relative_error'] * 100
+            within_ci = biomarker_metrics['within_ci']
+            
+            click.echo(f"  {biomarker}:")
+            click.echo(f"    Simulated (mean): {mean_val:.2f}")
+            click.echo(f"    Experimental: {exp_val:.2f}")
+            click.echo(f"    Relative error: {rel_error:.1f}%")
+            click.echo(f"    Within 95% CI: {'YES' if within_ci else 'NO'}")
+    
+    click.echo(f"\nDetailed results saved to: {output_dir}")
+    click.echo("Validation completed successfully!")
+
+
+if __name__ == "__main__":
+    validate()

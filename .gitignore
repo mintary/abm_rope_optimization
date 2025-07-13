@@ -1,5 +1,6 @@
 # Project-specific
 output/
+rope_abm_optimization.csv
 
 # Python
 __pycache__/

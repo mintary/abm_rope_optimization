@@ -136,8 +136,10 @@ int main(int argc, char* argv[]) {
             collagen = target_collagen[5] * param_multiplier;
             }
         } else {
-            total_fibroblasts = 0;
-            collagen = 0;
+            // For other ticks, use a linear growth model
+            double fraction = static_cast<double>(tick) / numticks;
+            total_fibroblasts = base_cells + (target_cells[0] - base_cells) * fraction * param_multiplier;
+            collagen = base_collagen + (target_collagen[0] - base_collagen) * fraction * param_multiplier;
         }
         
         // Split total fibroblasts between activated and normal (60/40 split)
