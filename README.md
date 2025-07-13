@@ -1,0 +1,164 @@
+# ROPE ABM optimization
+
+## Environment
+
+### Windows
+
+Run the following commands:
+
+```bash
+python -m venv venv
+venv\Scripts\Activate
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### Mac/Linux
+
+```bash
+python -m venv venv
+source venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+## Mock simulation
+
+The mock simulation (`mock_testRun`) is a C++ program designed to test and validate the ROPE optimization algorithm before applying it to the actual ABM simulation. It simulates the behavior of the real ABM by generating predictable biomarker data based on input parameters.
+
+We use this to test the optimization process without running the computationally expensive ABM world simulation. All parameters should converge towards `1`.
+
+### Architecture
+
+### Parameters
+
+The mock simulation uses **5 optimization parameters**:
+
+| Parameter | Purpose                    | Optimal Value | Target Control                  |
+| --------- | -------------------------- | ------------- | ------------------------------- |
+| `p0`      | Cell count control at 72h  | 1.0           | Fibroblast populations at t=144 |
+| `p1`      | Cell count control at 144h | 1.0           | Fibroblast populations at t=288 |
+| `p2`      | Collagen control at 72h    | 1.0           | Collagen levels at t=144        |
+| `p3`      | Collagen control at 144h   | 1.0           | Collagen levels at t=288        |
+| `p4`      | General scaling factor     | 1.0           | Overall amplitude adjustment    |
+
+### Target Values
+
+The simulation targets experimental data from three scaffold configurations:
+
+**Cell Counts (Total Fibroblasts)**:
+
+- GH10: [90, 90] cells at [72h, 144h]
+- GH2: [130, 87] cells at [72h, 144h]
+- GH5: [65, 85] cells at [72h, 144h]
+
+**Collagen Levels**:
+
+- GH10: [647000, 428000] at [72h, 144h]
+- GH2: [551000, 1000000] at [72h, 144h]
+- GH5: [912000, 649000] at [72h, 144h]
+
+#### Build Process
+
+```bash
+# Navigate to mock simulation directory
+cd mock_testRun
+
+# Create build directory
+mkdir build
+cd build
+
+# Configure with CMake
+cmake ..
+
+# Build the executable
+cmake --build .
+
+# The executable will be copied to mock_testRun/bin/
+```
+
+#### Running the Mock Simulation
+
+**Basic Usage**:
+
+```bash
+# Run with default parameters (from Sample.txt)
+./bin/testRun
+
+# Specify configuration file
+./bin/testRun --inputfile config_GH10.txt
+
+# Set custom parameters
+./bin/testRun --numticks 289 --inputfile config_GH2.txt
+```
+
+**Command Line Arguments**:
+
+- `--numticks <int>`: Number of simulation time steps (default: 289)
+- `--inputfile <string>`: Configuration file name (affects target selection)
+- `--wxw <double>`: X-dimension weight (default: 0.6)
+- `--wyw <double>`: Y-dimension weight (default: 0.6)
+- `--wzw <double>`: Z-dimension weight (default: 0.6)
+
+### Parameter File Format
+
+The `Sample.txt` file should contain tab-separated parameter values:
+
+```
+0.8 1.2 0.9 1.1 1.0
+```
+
+This represents: `[p0, p1, p2, p3, p4]`
+
+## Running ROPE algorithm with mock simulation
+
+The `run_rope_mock.sh` script provides a convenient way to run the ROPE optimization algorithm with the mock simulation. This script automates the process of building the mock simulation (if needed), setting up the necessary directories, and running the optimization with configurable parameters.
+
+### Basic Usage
+
+```bash
+./scripts/run_rope_mock.sh
+```
+
+### Command Line Options
+
+The script supports the following options:
+
+| Option                 | Description                            | Default Value   |
+| ---------------------- | -------------------------------------- | --------------- |
+| `-l, --log-level`      | Set logging level                      | `DEBUG`         |
+| `-pr, --param-ranking` | Parameter ranking method               | `random_forest` |
+| `-pn, --param-num`     | Number of parameters to rank           | `5`             |
+| `-i, --num-iterations` | Number of optimization iterations      | `800`           |
+| `-p, --parallel`       | Parallelization method (mpc, mpi, seq) | `mpc`           |
+| `-h, --help`           | Show help information                  |                 |
+
+### Examples
+
+Run with default settings:
+
+```bash
+./scripts/run_rope_mock.sh
+```
+
+Run with custom settings:
+
+```bash
+./scripts/run_rope_mock.sh --log-level INFO --param-num 4 --num-iterations 500 --parallel seq
+```
+
+Use the Morris method for parameter ranking:
+
+```bash
+./scripts/run_rope_mock.sh --param-ranking morris
+```
+
+### Output Files
+
+After the script completes, it will generate several output files:
+
+- `optimization_main.log`: Main process log messages
+- `optimization_progress.log`: Detailed optimization progress tracking
+- `optimization_report.json`: Final optimization report in JSON format
+- `rope_abm_optimization.csv`: SPOTPY results database
+- `rope_abm_optimization_mpc.log`: Log file for parallel processing (if using MPC)

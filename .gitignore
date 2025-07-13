@@ -1,0 +1,9 @@
+# Project-specific
+output/
+
+# Python
+__pycache__/
+
+# C++
+bin/
+build/
