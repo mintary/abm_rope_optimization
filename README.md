@@ -161,4 +161,9 @@ After the script completes, it will generate several output files:
 - `optimization_progress.log`: Detailed optimization progress tracking
 - `optimization_report.json`: Final optimization report in JSON format
 - `rope_abm_optimization.csv`: SPOTPY results database
-- `rope_abm_optimization_mpc.log`: Log file for parallel processing (if using MPC)
+
+It will also run validation, generating these files in `validation/`:
+
+- `validation_metrics.json`: Metrics (including C.I. for each biomarker)
+- `validation_results.json`: Actual values of outputed biomarkers from the simulation with those parameters
+- `validation.log`: Validation process log messages
