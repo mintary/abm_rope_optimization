@@ -1,5 +1,44 @@
 # ROPE ABM optimization
 
+## SLURM submission
+
+The scripts for submission to the SLURM workload manager are found in the `scripts/` directory. It's very important that you run the script such that your current working directory is the project root! In the future, we may make it possible to run it from everywhere.
+
+To submit a job:
+
+```bash
+mkdir -p slurm_logs
+export EMAIL=emily.wang10@mail.mcgill.ca
+sbatch --mail-user=$EMAIL --output ./slurm_logs/slurm-%j.out scripts/slurm_run_rope.sh
+```
+
+### Mock simulation with SLURM
+
+You can also run a shorter script (3 minute runtime) that steps through the workflow with a test simulation.
+
+To submit a job:
+
+```bash
+mkdir -p slurm_logs
+export EMAIL=emily.wang10@mail.mcgill.ca
+sbatch --mail-user=$EMAIL --output ./slurm_logs/slurm-%j.out scripts/slurm_run_rope_mock.sh
+```
+
+### To-dos:
+
+#### Optimization
+
+- [ ] Record runtimes and memory taken for each number of iterations (100, 200, 300...)
+- [ ] Have another SPOTPY algorithm (i.e. pure Monte Carlo sampling) for comparison
+- [ ] Automate optimizing for every biomarker separately, then running ROPE for all of them
+- [ ] Review the validation process to ensure it matches the manuscript
+
+#### QOL
+
+- [ ] Better documentation of the command-line arguments (automated documentation?)
+- [ ] Ability to submit batch jobs
+- [ ] Automated flow for visualizing results and creating a report for that run
+
 ## Environment
 
 ### Windows
@@ -98,7 +137,7 @@ The `Sample.txt` file should contain tab-separated parameter values:
 
 This represents: `[p0, p1, p2, p3, p4]`
 
-## Running ROPE algorithm with mock simulation
+## Running ROPE algorithm with mock simulation locally
 
 The `run_rope_mock.sh` script provides a convenient way to run the ROPE optimization algorithm with the mock simulation. This script automates the process of building the mock simulation (if needed), setting up the necessary directories, and running the optimization with configurable parameters.
 

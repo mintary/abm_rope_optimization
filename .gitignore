@@ -1,6 +1,9 @@
 # Project-specific
 output/
 rope_abm_optimization.csv
+slurm-*
+param_opt_*
+
 
 # Python
 __pycache__/
