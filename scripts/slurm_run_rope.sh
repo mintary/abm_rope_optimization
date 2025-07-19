@@ -1,11 +1,16 @@
 #!/bin/bash
 #SBATCH --account=def-nicoleli
-#SBATCH --time=08:00:00
+#SBATCH --time=05:00:00
 #SBATCH --cpus-per-task=32
 #SBATCH --gpus-per-node=2
 #SBATCH --mem=64000M
 #SBATCH --mail-user=${EMAIL}
 #SBATCH --mail-type=ALL
+#SBATCH --output=slurm_logs/%x_%j.out
+#SBATCH --error=slurm_logs/%x_%j.err
+
+# Create directory for storing slurm_logs
+mkdir -p slurm_logs
 
 module load StdEnv/2020 gcc/9.3.0 cuda/11.0 python/3.11 || { echo "Module load failed"; exit 1; }
 
@@ -17,11 +22,19 @@ tarball_name="param_opt_${current_date}_rope.tar.gz"
 mkdir -p finished_runs
 echo "The package directory will be saved to the finished_runs directory"
 
-# Create output directory in submission directory
-mkdir -p "$SLURM_SUBMIT_DIR/output"
 
 # trap to package directory on any exit (success or failure) excluding env
-trap 'echo "Packaging directory (trap)..."; cd "$SLURM_TMPDIR" && tar --exclude="env" --exclude="./env" -czf "$SLURM_SUBMIT_DIR/$tarball_name" . && echo "Packaged directory into: $SLURM_SUBMIT_DIR/finished_runs/$tarball_name"; echo "Copying final output files..."; cp -r output/* "$SLURM_SUBMIT_DIR/output/" 2>/dev/null || echo "No output files to copy"' EXIT
+function package_dir()
+{
+  echo "Packaging directory (trap)..."
+  cd "$SLURM_TMPDIR"
+  tar --exclude="env" --exclude="./env" --exclude="$SLURM_SUBMIT_DIR/finished_runs" -czf "$SLURM_SUBMIT_DIR/finished_runs/$tarball_name" 
+  echo "Packaged directory into: $SLURM_SUBMIT_DIR/finished_runs/$tarball_name"
+  exit
+}
+
+trap 'package_dir' EXIT
+
 
 echo "SLURM_TMPDIR: $SLURM_TMPDIR"
 echo "SLURM_SUBMIT_DIR: $SLURM_SUBMIT_DIR"
@@ -64,16 +77,9 @@ export PATH="$SLURM_TMPDIR/env/bin:$PATH"
 echo "Installing dependencies..."
 pip install --upgrade pip || { echo "Failed to upgrade pip"; exit 1; } 
 
-# Install packages with fallback
-if [ -f "requirements.txt" ] && [ -s "requirements.txt" ]; then
-    pip install --no-index -r requirements.txt || {
-        echo "requirements.txt failed, installing packages individually..."
-        pip install --no-index pandas click numpy pathos spotpy scikit-learn || { echo "Failed to install Python dependencies"; exit 1; }
-    }
-else
-    echo "requirements.txt not found or empty, installing packages directly..."
-    pip install --no-index pandas click numpy pathos spotpy scikit-learn || { echo "Failed to install Python dependencies"; exit 1; }
-fi
+# Install packages
+echo "Installing dependencies from list..."
+pip install --no-index pandas click numpy pathos spotpy scikit-learn || { echo "Failed to install Python dependencies"; exit 1; }
 
 pip freeze > installed_requirements.txt
 
