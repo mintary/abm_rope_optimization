@@ -353,6 +353,19 @@ def run_validation(
         "metrics": metrics
     }
 
+def convert_numpy_types(obj):
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.bool_):
+        return bool(obj)
+    elif isinstance(obj, dict):
+        return {key: convert_numpy_types(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_types(item) for item in obj]
+    else:
+        return obj
 
 @click.command()
 @click.option('--param-file', '-p', type=click.Path(exists=True, dir_okay=False), required=True,
@@ -431,8 +444,11 @@ def validate(param_file, run_dir, bin_dir, config_dir, exp_data, runs, output_di
     # Save metrics to output directory
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    
+    json_serializable_metrics = convert_numpy_types(metrics)
+    
     with open(output_dir / "validation_metrics.json", 'w') as f:
-        json.dump(metrics, f, indent=2)
+        json.dump(json_serializable_metrics, f, indent=2)
     
     click.echo(f"Validation results saved to: {output_dir / 'validation_results.json'}")
     click.echo(f"Metrics saved to: {output_dir / 'validation_metrics.json'}")
