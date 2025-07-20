@@ -247,6 +247,10 @@ class spotpyABM(object):
         self.error_history.append(current_error)
         
         if self.initial_error is None:
+            # Print the experimental data 
+            self.progress_logger.info(f"""
+                                      {self.evaluation()}
+                                      """)
             self.initial_error = current_error
             self.progress_logger.info(f"Initial error: {current_error:.6f}")
             if parameter_values:

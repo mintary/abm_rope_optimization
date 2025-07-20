@@ -26,14 +26,18 @@ echo "The package directory will be saved to the finished_runs directory"
 # trap to package directory on any exit (success or failure) excluding env
 function package_dir()
 {
-  echo "Packaging directory (trap)..."
-  cd "$SLURM_TMPDIR"
-  # Copy the slurm log to the tarball
-cp "$SLURM_SUBMIT_DIR/slurm_logs/${SLURM_JOB_NAME}_${SLURM_JOB_ID}.out" .
-cp "$SLURM_SUBMIT_DIR/slurm_logs/${SLURM_JOB_NAME}_${SLURM_JOB_ID}.err" .
-  tar --exclude="env" --exclude="./env" --exclude="$SLURM_SUBMIT_DIR/finished_runs" -czf "$SLURM_SUBMIT_DIR/finished_runs/$tarball_name" 
-  echo "Packaged directory into: $SLURM_SUBMIT_DIR/finished_runs/$tarball_name"
-  exit
+    echo "Packaging directory (trap)..."
+    
+    # First, copy output files to submit directory before packaging
+    copy_output_to_submission
+    
+    cd "$SLURM_TMPDIR"
+    # Copy the slurm log to the tarball
+    cp "$SLURM_SUBMIT_DIR/slurm_logs/${SLURM_JOB_NAME}_${SLURM_JOB_ID}.out" . 2>/dev/null || echo "Could not copy stdout log"
+    cp "$SLURM_SUBMIT_DIR/slurm_logs/${SLURM_JOB_NAME}_${SLURM_JOB_ID}.err" . 2>/dev/null || echo "Could not copy stderr log"
+    tar --exclude="env" --exclude="./env" --exclude="$SLURM_SUBMIT_DIR/finished_runs" -czf "$SLURM_SUBMIT_DIR/finished_runs/$tarball_name" .
+    echo "Packaged directory into: $SLURM_SUBMIT_DIR/finished_runs/$tarball_name"
+    exit
 }
 
 trap 'package_dir' EXIT
@@ -49,6 +53,7 @@ cd "$SLURM_TMPDIR" || { echo "Failed to change to SLURM_TMPDIR"; exit 1; }
 
 # Create output directory if it doesn't exist
 mkdir -p output
+mkdir -p "$SLURM_SUBMIT_DIR/output"
 
 echo "Files in working directory:"
 ls -la
@@ -193,13 +198,63 @@ cd "$PROJECT_ROOT"
 # Function to copy output files to submission directory
 copy_output_to_submission() {
     echo "Copying output files to submission directory..."
-    cp -r output/* "$SLURM_SUBMIT_DIR/output/" 2>/dev/null || echo "No output files to copy yet"
-    # Also copy log files if they exist
-    cp *.log "$SLURM_SUBMIT_DIR/output/" 2>/dev/null || echo "No log files to copy"
-    cp installed_requirements.txt "$SLURM_SUBMIT_DIR/output/" 2>/dev/null || echo "No requirements file to copy"
+    echo "Current working directory: $(pwd)"
+    echo "PROJECT_ROOT: $PROJECT_ROOT"
+    
+    mkdir -p "$SLURM_SUBMIT_DIR/output"
+    
+    echo "Contents of current directory:"
+    ls -la
+    
+    if [ -d "output" ]; then
+        echo "Contents of output directory:"
+        ls -la output/
+    else
+        echo "Output directory does not exist in current location"
+    fi
+    
+    if [ -d "output" ] && [ "$(ls -A "output" 2>/dev/null)" ]; then
+        echo "Copying from $(pwd)/output to $SLURM_SUBMIT_DIR/output/"
+        cp -rv "output"/* "$SLURM_SUBMIT_DIR/output/" 2>&1
+        if [ $? -eq 0 ]; then
+            echo "Output files copied successfully"
+        else
+            echo "Failed to copy some output files"
+        fi
+    else
+        echo "No output files to copy yet (output directory empty or doesn't exist)"
+    fi
+    
+    # Copy log files if they exist
+    echo "Looking for log files in $(pwd):"
+    ls -la *.log 2>/dev/null || echo "No .log files found"
+    if ls *.log 1> /dev/null 2>&1; then
+        cp -v *.log "$SLURM_SUBMIT_DIR/output/" 2>&1
+        if [ $? -eq 0 ]; then
+            echo "Log files copied"
+        else
+            echo "Failed to copy log files"
+        fi
+    fi
+    
+    # Copy requirements file if it exists
+    if [ -f "installed_requirements.txt" ]; then
+        cp -v installed_requirements.txt "$SLURM_SUBMIT_DIR/output/" 2>&1
+        if [ $? -eq 0 ]; then
+            echo "Requirements file copied"
+        else
+            echo "Failed to copy requirements file"
+        fi
+    else
+        echo "No requirements file found"
+    fi
+    
+    echo "Files in submit directory output:"
+    ls -la "$SLURM_SUBMIT_DIR/output/" 2>/dev/null || echo "Submit directory output is empty"
 }
 
 echo "Starting ROPE optimization..."
+echo "About to run ROPE from directory: $(pwd)"
 python -m src.calibration.run_rope \
     --log-level "$LOG_LEVEL" \
     --param-ranking "$PARAM_RANKING" \
@@ -213,6 +268,9 @@ python -m src.calibration.run_rope \
     --parallel "$PARALLEL" > output/output.txt 2>&1
 
 ROPE_EXIT_CODE=$?
+echo "ROPE completed with exit code: $ROPE_EXIT_CODE"
+echo "Contents after ROPE:"
+ls -la output/ 2>/dev/null || echo "No output directory after ROPE"
 
 # Copy output files after ROPE optimization
 copy_output_to_submission

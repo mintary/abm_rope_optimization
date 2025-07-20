@@ -7,7 +7,8 @@ def normalized_biomarker_error(
         evaluation: List[float],
         metric_function: Callable = rmse,
         fibroblast_indices: Optional[List[int]] = None,
-        collagen_indices: Optional[List[int]] = None
+        collagen_indices: Optional[List[int]] = None,
+        debug: bool = False
     ) -> float:
     """
     Calculate the error between simulation and evaluation data with normalization
@@ -19,7 +20,7 @@ def normalized_biomarker_error(
         metric_function: The function to calculate error (default: RMSE)
         fibroblast_indices: List of indices for fibroblast count values
         collagen_indices: List of indices for collagen level values
-        
+        debug: If True, print debug information
     Returns:
         Normalized error value
     """
@@ -50,5 +51,15 @@ def normalized_biomarker_error(
     
     fibroblast_error = metric_function(sim_fibroblasts_norm, eval_fibroblasts_norm)
     collagen_error = metric_function(sim_collagen_norm, eval_collagen_norm)
+
+    if debug:
+        print(f"Simulation Fibroblasts: {sim_fibroblasts}")
+        print(f"Simulation Collagen: {sim_collagen}")
+        print(f"Evaluation Fibroblasts: {eval_fibroblasts}")
+        print(f"Evaluation Collagen: {eval_collagen}")
+        print(f"Fibroblast Error: {fibroblast_error}")
+        print(f"Collagen Error: {collagen_error}")
+        print(f"Normalized Fibroblasts: {sim_fibroblasts_norm} vs {eval_fibroblasts_norm}")
+        print(f"Normalized Collagen: {sim_collagen_norm} vs {eval_collagen_norm}")
     
     return (fibroblast_error + collagen_error) / 2
