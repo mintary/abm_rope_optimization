@@ -3,6 +3,7 @@ output/
 rope_abm_optimization.csv
 slurm-*
 param_opt_*
+slurm_logs/*
 
 
 # Python

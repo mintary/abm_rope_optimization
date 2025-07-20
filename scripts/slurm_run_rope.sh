@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --account=def-nicoleli
-#SBATCH --time=05:00:00
+#SBATCH --time=02:00:00
 #SBATCH --cpus-per-task=32
 #SBATCH --gpus-per-node=2
 #SBATCH --mem=64000M
@@ -15,8 +15,8 @@ mkdir -p slurm_logs
 module load StdEnv/2020 gcc/9.3.0 cuda/11.0 python/3.11 || { echo "Module load failed"; exit 1; }
 
 # PACKAGE DIRECTORY AT FAILURE OR SUCCESS
-current_date=$(date +"%Y-%m-%d_%H-%M-%S")
-tarball_name="param_opt_${current_date}_rope.tar.gz"
+current_date=$(date +"%Y-%m-%d")
+tarball_name="param_opt_${current_date}_${SLURM_JOB_ID}_rope.tar.gz"
 
 # Create directory for storing tarballs if it doesn't exist
 mkdir -p finished_runs
@@ -94,7 +94,7 @@ SCRIPT_DIR="$SLURM_TMPDIR"
 PROJECT_ROOT="$SLURM_TMPDIR"
 
 echo "Project root: $PROJECT_ROOT"
-echo "Running ROPE optimization with mock simulation..."
+echo "Running ROPE optimization with simulation..."
 
 # Create output directory for simulation runs
 RUN_DIR="$PROJECT_ROOT/output/rope_runs"
