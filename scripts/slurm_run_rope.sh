@@ -44,7 +44,7 @@ echo "SLURM_SUBMIT_DIR: $SLURM_SUBMIT_DIR"
 
 # Copy required files to SLURM_TMPDIR
 echo "Copying files to SLURM_TMPDIR..."
-cp -r "$SLURM_SUBMIT_DIR"/* "$SLURM_TMPDIR/" || { echo "Failed to copy files"; exit 1; }
+rsync -av --exclude='slurm_logs' --exclude='finished_runs' "$SLURM_SUBMIT_DIR/" "$SLURM_TMPDIR/" || { echo "Failed to copy files"; exit 1; }
 cd "$SLURM_TMPDIR" || { echo "Failed to change to SLURM_TMPDIR"; exit 1; }
 
 # Create output directory if it doesn't exist

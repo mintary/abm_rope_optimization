@@ -8,7 +8,7 @@ def normalized_biomarker_error(
         metric_function: Callable = rmse,
         fibroblast_indices: Optional[List[int]] = None,
         collagen_indices: Optional[List[int]] = None,
-        debug: bool = False
+        debug: bool = True
     ) -> float:
     """
     Calculate the error between simulation and evaluation data with normalization
