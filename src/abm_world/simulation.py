@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Optional
+import pandas as pd
 import csv
 import subprocess
 import platform
@@ -11,7 +12,9 @@ import src.calibration.constants as constants
 logger = logging.getLogger(__name__)
 
 def prepare_sample(
-    values,  # Remove type hint since SpotPy passes special parameter objects
+    values,
+    all_params: pd.DataFrame,
+    chosen_params: list[str],
     sample_output_path: Path
 ) -> None:
     """
@@ -19,6 +22,8 @@ def prepare_sample(
     
     Args:
         values: Parameter values from SpotPy (could be ndarray or parameter object)
+        all_params: DataFrame containing all parameters with their bounds and default values
+        chosen_params: List of parameter names to include in the sample
         sample_output_path: Path where the sample file will be written
     """
     # Convert any iterable obejct into a numpy array
@@ -27,14 +32,27 @@ def prepare_sample(
     elif not isinstance(values, np.ndarray):
         values = np.array(values)
     
-    if values.ndim == 1:
-        values = values.reshape(1, -1)
-    
+    # Now we go through all the parameters, changing the values of the chosen parameters only
+    # to the values from the SpotPy sample
+    sample_values: list[float] = [0.0] * len(all_params)
+
+    chosen_parameter_index = 0
+    param_names = all_params['parameter_name'].values
+    default_values = [float(value) for value in all_params['default_value'].values]
+
+    for i, param_name in enumerate(param_names):
+        if param_name in chosen_params:
+            chosen_param_value = values[chosen_parameter_index]
+            sample_values[i] = chosen_param_value
+            chosen_parameter_index += 1
+        else:
+            sample_values[i] = default_values[i]
+
     with sample_output_path.open('w', newline='') as file:
         writer = csv.writer(file, delimiter='\t')
-        writer.writerows(values)
-    
-    logger.debug(f"Sample file written to {sample_output_path} with values: {values}")
+        writer.writerow(sample_values)
+
+    logger.debug(f"Sample file written to {sample_output_path} with values: {sample_values}")
 
 def run_abm_simulation(
         bin_path: Path,

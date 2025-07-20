@@ -9,21 +9,59 @@ This module provides functionality to validate the ABM model by:
 """
 
 import json
-import uuid
 import shutil
 import logging
 import numpy as np
 import pandas as pd
+import sys
 import click
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any, Union, Mapping
 from scipy import stats
 from src.abm_world.simulation import prepare_sample, run_abm_simulation
-from src.abm_world.preprocessing import extract_small_scaffold_experimental
+from src.abm_world.preprocessing import extract_small_scaffold_experimental, process_parameters_from_csv, extract_n_parameters
 from src.calibration.error_function import normalized_biomarker_error
+from src.post_calibration.parameter_extraction import extract_parameters_from_csv
 import src.calibration.constants as constants
 
 logger = logging.getLogger(__name__)
+
+def setup_main_logger(log_level=logging.INFO):
+    """
+    Set up a dedicated logger for the main process with both console and file output.
+    
+    Args:
+        log_level: Logging level (default: INFO)
+    
+    Returns:
+        The configured logger instance
+    """
+    main_logger = logging.getLogger('validation_main')
+    main_logger.setLevel(log_level)
+    main_logger.propagate = False  # Don't propagate to root logger
+    
+    if main_logger.handlers:
+        main_logger.handlers.clear()
+    
+    console_handler = logging.StreamHandler(sys.stdout)
+    
+    # Create output directory if it doesn't exist
+    output_dir = Path("output/validation")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    file_handler = logging.FileHandler(output_dir / 'validation_main.log', mode='w')
+    
+    console_handler.setLevel(log_level)
+    file_handler.setLevel(log_level)
+    
+    formatter = logging.Formatter('%(asctime)s - VALIDATION_MAIN - %(levelname)s - %(message)s')
+    
+    console_handler.setFormatter(formatter)
+    file_handler.setFormatter(formatter)
+    
+    main_logger.addHandler(console_handler)
+    main_logger.addHandler(file_handler)
+    
+    return main_logger
 
 validation_logger = logging.getLogger(f"{__name__}.validation")
 validation_logger.setLevel(logging.DEBUG)
@@ -47,6 +85,8 @@ if not validation_logger.handlers:
 
 def run_multiple_validations(
         parameter_values: List[float],
+        all_params: pd.DataFrame,
+        chosen_params: List[str],
         subprocess_run_dir: Path,
         bin_dir: Path,
         config_file_dir: Path,
@@ -61,6 +101,8 @@ def run_multiple_validations(
     
     Args:
         parameter_values: Optimized parameter values to use
+        all_params: DataFrame containing all parameter values
+        chosen_params: List of parameter names matching the parameter_values
         subprocess_run_dir: Directory for simulation runs
         bin_dir: Directory containing ABM binaries
         config_file_dir: Directory containing configuration files
@@ -108,9 +150,13 @@ def run_multiple_validations(
             source_config = config_file_dir / config_file_name
             dest_config = run_config_dir / config_file_name
             shutil.copy(source_config, dest_config)
+
+            validation_logger.info(f"  Preparing sample file for run {run_idx} in {run_dir}")
             
+
             sample_path = run_dir / "Sample.txt"
-            prepare_sample(parameter_values, sample_path)
+
+            prepare_sample(parameter_values, all_params, chosen_params, sample_path)
             
             biomarker_output_dir = run_dir / "output"
             biomarker_output_dir.mkdir(parents=True, exist_ok=True)
@@ -284,6 +330,8 @@ def convert_df_to_dict(df: pd.DataFrame):
 
 def run_validation(
         parameter_values: List[float],
+        all_params: pd.DataFrame,
+        chosen_params: List[str],
         subprocess_run_dir: Path,
         bin_dir: Path,
         config_file_dir: Path,
@@ -331,6 +379,8 @@ def run_validation(
     validation_logger.info("Running validation simulations...")
     simulation_results = run_multiple_validations(
         parameter_values=parameter_values,
+        all_params=all_params,
+        chosen_params=chosen_params,
         subprocess_run_dir=subprocess_run_dir,
         bin_dir=bin_dir,
         config_file_dir=config_file_dir,
@@ -376,6 +426,12 @@ def convert_numpy_types(obj):
               help="Directory containing ABM binaries")
 @click.option('--config-dir', '-c', type=click.Path(exists=True, file_okay=False, dir_okay=True), required=True,
               help="Directory containing configuration files")
+@click.option('--sensitivity-analysis-csv', '-s', type=click.Path(exists=True, dir_okay=False),
+              help="CSV file containing sensitivity analysis results.")
+@click.option('--param-ranking', '-pr', type=click.Choice(choices=['random_forest', 'morris'], case_sensitive=False), default='random_forest',
+              help="Method to rank parameters for sensitivity analysis.")
+@click.option('--param-num', '-pn', default=5, type=int, 
+              help="Number of parameters to rank.")
 @click.option('--exp-data', '-e', type=click.Path(exists=True, dir_okay=False), required=True,
               help="Path to experimental data file")
 @click.option('--runs', type=int, default=3,
@@ -388,31 +444,52 @@ def convert_numpy_types(obj):
               help="Load parameters from CSV file instead of JSON")
 @click.option('--num-params', type=int, default=5,
               help="Number of parameters in the CSV file (only used with --use-csv)")
-def validate(param_file, run_dir, bin_dir, config_dir, exp_data, runs, output_dir, config_files, use_csv, num_params):
+@click.option('--log-level', '-ll', default='INFO', type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], case_sensitive=False), 
+              help="Set the logging level.")
+def validate(
+        param_file, 
+        run_dir, 
+        bin_dir, 
+        config_dir, 
+        sensitivity_analysis_csv, 
+        param_ranking, 
+        param_num,
+        exp_data, 
+        runs, 
+        output_dir, 
+        config_files, 
+        use_csv, 
+        num_params,
+        log_level):
     """
     Validate ABM model with optimized parameters.
     
     This command runs validation simulations using optimized parameters from either
     a JSON file (from parameter extraction) or directly from a CSV file (ROPE output).
     """
-    import click
+    log_level_map = {
+        'DEBUG': logging.DEBUG,
+        'INFO': logging.INFO,
+        'WARNING': logging.WARNING,
+        'ERROR': logging.ERROR,
+        'CRITICAL': logging.CRITICAL
+    }
+    main_logger = setup_main_logger(log_level=log_level_map.get(log_level.upper(), logging.INFO))
     
-    click.echo("Starting ABM model validation...")
-    click.echo(f"Parameter file: {param_file}")
-    click.echo(f"Using {'CSV' if use_csv else 'JSON'} format")
-    click.echo(f"Runs per configuration: {runs}")
+    main_logger.info("Starting ABM model validation...")
+    main_logger.info(f"Parameter file: {param_file}")
+    main_logger.info(f"Using {'CSV' if use_csv else 'JSON'} format")
+    main_logger.info(f"Runs per configuration: {runs}")
     
-    if use_csv:
-        from src.post_calibration.parameter_extraction import extract_parameters_from_csv
-        
-        click.echo("Loading parameters from CSV file...")
+    if use_csv:        
+        main_logger.info("Loading parameters from CSV file...")
         param_data = extract_parameters_from_csv(param_file, num_parameters=num_params, top_n=1)
         parameter_values = param_data["best_parameter_set"]
         
-        click.echo(f"Best parameter set: {parameter_values}")
-        click.echo(f"Error value: {param_data['actual_error_value']:.6f}")
+        main_logger.info(f"Best parameter set: {parameter_values}")
+        main_logger.info(f"Error value: {param_data['actual_error_value']:.6f}")
     else:
-        click.echo("Loading parameters from JSON file...")
+        main_logger.info("Loading parameters from JSON file...")
         with open(param_file, 'r') as f:
             parameters = json.load(f)
         
@@ -423,10 +500,18 @@ def validate(param_file, run_dir, bin_dir, config_dir, exp_data, runs, output_di
         else:
             raise ValueError("Unrecognized parameter file format. Expected 'best_parameter_set' or 'best_parameters' key.")
     
-    click.echo(f"Configuration files: {list(config_files)}")
+    main_logger.info(f"Configuration files: {list(config_files)}")
+
+    # Get all the parameter values
+    all_params = process_parameters_from_csv(sensitivity_analysis_csv)
+    chosen_params = extract_n_parameters(all_params, ranking_method=param_ranking, n=param_num)
     
+    main_logger.info(f"Using parameter values: {parameter_values}")
+
     validation_results = run_validation(
         parameter_values=parameter_values,
+        all_params=all_params,
+        chosen_params=chosen_params,
         subprocess_run_dir=Path(run_dir),
         bin_dir=Path(bin_dir),
         config_file_dir=Path(config_dir),
@@ -436,9 +521,9 @@ def validate(param_file, run_dir, bin_dir, config_dir, exp_data, runs, output_di
         output_dir=Path(output_dir)
     )
     
-    click.echo("\n" + "="*50)
-    click.echo("VALIDATION SUMMARY")
-    click.echo("="*50)
+    main_logger.info("\n" + "="*50)
+    main_logger.info("VALIDATION SUMMARY")
+    main_logger.info("="*50)
     
     metrics = validation_results["metrics"]
     # Save metrics to output directory
@@ -450,25 +535,26 @@ def validate(param_file, run_dir, bin_dir, config_dir, exp_data, runs, output_di
     with open(output_dir / "validation_metrics.json", 'w') as f:
         json.dump(json_serializable_metrics, f, indent=2)
     
-    click.echo(f"Validation results saved to: {output_dir / 'validation_results.json'}")
-    click.echo(f"Metrics saved to: {output_dir / 'validation_metrics.json'}")
+    main_logger.info(f"Validation results saved to: {output_dir / 'validation_results.json'}")
+    main_logger.info(f"Metrics saved to: {output_dir / 'validation_metrics.json'}")
 
     for config_name, config_metrics in metrics.items():
-        click.echo(f"\nConfiguration: {config_name}")
+        main_logger.info(f"\nConfiguration: {config_name}")
         for biomarker, biomarker_metrics in config_metrics.items():
             mean_val = biomarker_metrics['mean']
             exp_val = biomarker_metrics['experimental']
             rel_error = biomarker_metrics['relative_error'] * 100
             within_ci = biomarker_metrics['within_ci']
             
-            click.echo(f"  {biomarker}:")
-            click.echo(f"    Simulated (mean): {mean_val:.2f}")
-            click.echo(f"    Experimental: {exp_val:.2f}")
-            click.echo(f"    Relative error: {rel_error:.1f}%")
-            click.echo(f"    Within 95% CI: {'YES' if within_ci else 'NO'}")
+            main_logger.info(f"  {biomarker}:")
+            main_logger.info(f"    Simulated (mean): {mean_val:.2f}")
+            main_logger.info(f"    Experimental: {exp_val:.2f}")
+            main_logger.info(f"    Relative error: {rel_error:.1f}%")
+            main_logger.info(f"    Within 95% CI: {'YES' if within_ci else 'NO'}")
     
-    click.echo(f"\nDetailed results saved to: {output_dir}")
-    click.echo("Validation completed successfully!")
+    main_logger.info(f"\nDetailed results saved to: {output_dir}")
+    main_logger.info("Main process log saved to 'output/validation/validation_main.log'.")
+    main_logger.info("Validation completed successfully!")
 
 
 if __name__ == "__main__":

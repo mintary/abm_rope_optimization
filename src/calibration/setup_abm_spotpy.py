@@ -3,6 +3,7 @@ import uuid
 import shutil
 import logging
 import numpy as np
+import pandas as pd
 from pathlib import Path
 from typing import Optional, Callable
 from spotpy.objectivefunctions import rmse
@@ -21,7 +22,8 @@ class spotpyABM(object):
             subprocess_run_dir: Path,
             bin_dir: Path,
             config_file_dir: Path,
-            params: list[spotpy.parameter.Uniform],
+            chosen_params: list[str],
+            all_params: pd.DataFrame,
             num_ticks: int = 289,
             tracked_biomarkers: list[str] = ["TotalFibroblast", "Collagen"],
             tracked_ticks: list[int] = [constants.TICKS_PER_DAY * 3, constants.TICKS_PER_DAY * 6],
@@ -33,7 +35,8 @@ class spotpyABM(object):
             subprocess_run_dir (Path): Directory where all the subprocess runs will be executed.
             bin_dir (Path): Directory containing the ABM binaries.
             config_file_dir (Path): Directory containing the configuration files for the ABM.
-            params (list[spotpy.parameter.Uniform]): List of parameters to be sampled.
+            chosen_params (list[str]): List of parameter names to optimize.
+            all_params (pd.DataFrame): DataFrame containing all parameters for the ABM.
             num_ticks (int): Total number of ticks for the simulation.
             tracked_biomarkers (list[str]): List of biomarkers to track during the simulation, returned as our results of the simulation.
             tracked_ticks (list[int]): Ticks at which to track biomarkers.
@@ -42,7 +45,9 @@ class spotpyABM(object):
         self.subprocess_run_dir = subprocess_run_dir
         self.bin_dir = bin_dir
         self.config_file_dir = config_file_dir
-        self.params = params
+        self.chosen_params = chosen_params
+        self.all_params = all_params
+        self.params = []
         self.num_ticks = num_ticks
         self.tracked_biomarkers = tracked_biomarkers
         self.tracked_ticks = tracked_ticks
@@ -83,14 +88,29 @@ class spotpyABM(object):
         return progress_logger
 
     def parameters(self) -> np.ndarray:
-        return spotpy.parameter.generate(self.params)
-    
+        """
+        Generate parameter vector based on the chosen parameters.
+        """
+        filtered_params = self.all_params[self.all_params['parameter_name'].isin(self.chosen_params)]
+        if filtered_params.empty:
+            raise ValueError("No parameters found matching the chosen parameters.")
+        
+        spotpy_params = [
+            spotpy.parameter.Uniform(
+                name=str(row['parameter_name']),
+                low=float(row['lower_bound']),
+                high=float(row['upper_bound']),
+                optguess=float(row['default_value'])
+            ) for _, row in filtered_params.iterrows()
+        ]
+
+        return spotpy.parameter.generate(spotpy_params)
+
     def simulation(self, vector: np.ndarray, config_path_names: list[str] = constants.CONFIG_FILE_NAMES) -> list[float]:
         """
         Run the ABM simulation with the provided parameters.
         Args:
-            vector (np.ndarray): Sampled parameter values.
-            run_id (Optional[str]): Unique identifier for the run. If None, a new UUID is generated.
+            vector (np.ndarray): Sampled parameter values from SpotPy. These are in the order of the chosen parameters.
             config_path_names (list[str]): List of configuration file names to use for the simulation. We run the simulation for each config file in the list.
         Returns:
             list[float]: List of tracked biomarkers at the specified ticks for each config file, flattened into a single list.
@@ -100,7 +120,6 @@ class spotpyABM(object):
 
         run_id_dir = self.subprocess_run_dir / run_id
         run_id_dir.mkdir(parents=True, exist_ok=True)
-
 
         # Copy the binary executable to the run directory
         run_id_dir_bin = run_id_dir / "bin"
@@ -119,7 +138,9 @@ class spotpyABM(object):
             shutil.copy(source, dest)
 
         sample_output_path = run_id_dir / "Sample.txt"
-        prepare_sample(vector, sample_output_path)
+
+        # Pass all parameters to the prepare_sample function
+        prepare_sample(vector, self.all_params, self.chosen_params, sample_output_path)
 
         results: list[float] = []
 

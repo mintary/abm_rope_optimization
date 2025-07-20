@@ -44,9 +44,13 @@ def process_parameters_from_csv(file_path: Path) -> pd.DataFrame:
     # Return only the requested columns
     return df[["parameter_number", "parameter_name", "morris_ranking", "random_forest_ranking", "lower_bound", "upper_bound", "default_value"]]
 
-def extract_n_parameters(df: pd.DataFrame, ranking_method: str, n: int) -> pd.DataFrame:
+def extract_n_parameters(df: pd.DataFrame, ranking_method: str, n: int) -> list[str]:
     """
-    Extracts the top n parameters from the processed DataFrame based on the ranking method.
+    Extracts a list of the top n parameters' names based on the specified ranking method.
+    Args:
+        df: DataFrame containing parameter information.
+        ranking_method: The ranking method to use (e.g., "morris", "random_forest").
+        n: Number of top parameters to extract.
     """
     if ranking_method not in RANKING_METHODS:
         raise ValueError(f"Invalid ranking method: {ranking_method}. Choose from {RANKING_METHODS}.")
@@ -54,7 +58,7 @@ def extract_n_parameters(df: pd.DataFrame, ranking_method: str, n: int) -> pd.Da
     df = df.sort_values(by=ranking_col).reset_index(drop=True)
     # Select only the top n parameters
     df = df.head(n)
-    return df[["parameter_number", "parameter_name", ranking_col, "lower_bound", "upper_bound", "default_value"]]
+    return df["parameter_name"].tolist()
 
 def small_scaffold_adjustment(value: float) -> float:
     """

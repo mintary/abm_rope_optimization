@@ -227,9 +227,12 @@ if [ $ROPE_EXIT_CODE -eq 0 ]; then
         --run-dir "$RUN_DIR" \
         --bin-dir "$BIN_DIR" \
         --config-dir "$CONFIG_DIR" \
+        --sensitivity-analysis-csv "$SENSITIVITY_CSV" \
+        --param-ranking "$PARAM_RANKING" \
+        --param-num "$PARAM_NUM" \
         --exp-data "$EXPERIMENTAL_CSV" \
         --use-csv >> output/output.txt 2>&1
-    
+
     FINAL_EXIT_CODE=$?
     
     # Copy final output files after validation

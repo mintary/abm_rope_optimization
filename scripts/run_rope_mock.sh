@@ -147,6 +147,9 @@ python -m src.post_calibration.validation \
     --run-dir "$RUN_DIR" \
     --bin-dir "$BIN_DIR" \
     --config-dir "$CONFIG_DIR" \
+    --sensitivity-analysis-csv "$SENSITIVITY_CSV" \
+    --param-ranking "$PARAM_RANKING" \
+    --param-num "$PARAM_NUM" \
     --exp-data "$EXPERIMENTAL_CSV" \
     --use-csv 
 

@@ -105,18 +105,10 @@ def run(ctx,
 
     main_logger.info(f"Processing parameters from {sensitivity_analysis_csv}")
     df = process_parameters_from_csv(sensitivity_analysis_csv)
-    params = extract_n_parameters(df, ranking_method=param_ranking, n=param_num)
-    main_logger.info(f"Selected {len(params)} parameters using {param_ranking} ranking method")
-    main_logger.info(f"Parameters: {params.to_dict()}")
+    chosen_params = extract_n_parameters(df, param_ranking, param_num)
 
-    spotpy_params = [
-        spotpy.parameter.Uniform(
-            name=str(row['parameter_number']),
-            low=float(row['lower_bound']),
-            high=float(row['upper_bound']),
-            optguess=float(row['default_value'])
-        ) for _, row in params.iterrows()
-    ]
+    main_logger.info(f"Selected {len(chosen_params)} parameters using {param_ranking} ranking method")
+    main_logger.info(f"Parameters to optimize: {chosen_params}")
 
     main_logger.info("Initializing spotpy setup")
     spotpy_setup = spotpyABM(
@@ -124,7 +116,8 @@ def run(ctx,
         subprocess_run_dir=run_dir_parent,
         bin_dir=bin_dir,
         config_file_dir=config_file_dir,
-        params=spotpy_params,
+        all_params=df,
+        chosen_params=chosen_params,
         experimental_data_file=experimental_data_csv,
         num_ticks=289,
         tracked_ticks=[144, 288],
