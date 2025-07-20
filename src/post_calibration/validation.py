@@ -539,7 +539,7 @@ def validate(
     main_logger.info(f"Metrics saved to: {output_dir / 'validation_metrics.json'}")
 
     for config_name, config_metrics in metrics.items():
-        main_logger.info(f"\nConfiguration: {config_name}")
+        main_logger.info(f"Configuration: {config_name}")
         for biomarker, biomarker_metrics in config_metrics.items():
             mean_val = biomarker_metrics['mean']
             exp_val = biomarker_metrics['experimental']

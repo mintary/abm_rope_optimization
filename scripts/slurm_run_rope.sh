@@ -28,6 +28,9 @@ function package_dir()
 {
   echo "Packaging directory (trap)..."
   cd "$SLURM_TMPDIR"
+  # Copy the slurm log to the tarball
+cp "$SLURM_SUBMIT_DIR/slurm_logs/${SLURM_JOB_NAME}_${SLURM_JOB_ID}.out" .
+cp "$SLURM_SUBMIT_DIR/slurm_logs/${SLURM_JOB_NAME}_${SLURM_JOB_ID}.err" .
   tar --exclude="env" --exclude="./env" --exclude="$SLURM_SUBMIT_DIR/finished_runs" -czf "$SLURM_SUBMIT_DIR/finished_runs/$tarball_name" 
   echo "Packaged directory into: $SLURM_SUBMIT_DIR/finished_runs/$tarball_name"
   exit
