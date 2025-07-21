@@ -27,6 +27,8 @@ def normalized_biomarker_error(
     if len(simulation) != len(evaluation):
         raise ValueError("Simulation and evaluation lists must have the same length")
     
+    noise = np.random.uniform(-1e-12, 1e-12) # We use this to prevent ties in likes, otherwise ROPE will complain
+
     # Get every other index for fibroblasts and collagen
     if fibroblast_indices is None:
         fibroblast_indices = list(range(0, len(simulation), 2))
@@ -62,4 +64,4 @@ def normalized_biomarker_error(
         print(f"Normalized Fibroblasts: {sim_fibroblasts_norm} vs {eval_fibroblasts_norm}")
         print(f"Normalized Collagen: {sim_collagen_norm} vs {eval_collagen_norm}")
     
-    return (fibroblast_error + collagen_error) / 2
+    return (fibroblast_error + collagen_error) / 2 + noise
