@@ -165,7 +165,6 @@ def run_abm_simulation(
                     tick_result = {k: v for k, v in tick_result.items() if k in tracked_biomarkers}
 
                 results[int(row["clock"])] = tick_result
-    logger.debug(f"Simulation completed. Results: {results}")
     return results
 
         

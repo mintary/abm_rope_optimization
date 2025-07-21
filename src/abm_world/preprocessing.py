@@ -60,7 +60,7 @@ def extract_n_parameters(df: pd.DataFrame, ranking_method: str, n: int) -> list[
     df = df.head(n)
     return df["parameter_name"].tolist()
 
-def small_scaffold_adjustment(value: float) -> float:
+def small_scaffold_adjustment_cells(value: float) -> float:
     """
     Adjusts the value for the small scaffold experimental data.
     The adjustment is based on the formula:
@@ -68,12 +68,17 @@ def small_scaffold_adjustment(value: float) -> float:
     """
     return ((0.6 ** 3) / 1000 / 0.3) * value
 
+def small_scaffold_adjustment_collagen(value: float) -> float:
+    """
+    Adjusts the value for the small scaffold experimental data.
+    The adjustment is based on the formula:
+    ((0.6)^3 / 300 ) * value * 10^6
+    """
+    return ((0.6 ** 3) / 300) * value * 10 ** 6
+
 def extract_small_scaffold_experimental(file_path: Path) -> pd.DataFrame:
     """
     Extracts experimental data from CSV file corresponding to the small scaffold.
-    We apply the following formulas:
-        - cell_number = ((0.6)^3 / 1000) / (0.3 * average of picogreen_cells)
-        - collagen_pg = ((0.6)^3 / 1000) / (0.3 * average of sircol_collagen_ug) * 10^6
     """
     df = pd.read_csv(file_path)
     df.columns = [c.strip() for c in df.columns]
@@ -90,11 +95,11 @@ def extract_small_scaffold_experimental(file_path: Path) -> pd.DataFrame:
     averages = df.groupby(["group", "time_hour"]).mean().reset_index()
 
     # Apply scaffold adjustment to the mean live_cells
-    averages["small_scaffold_cell_avg"] = averages["live_cells"].apply(small_scaffold_adjustment)
+    averages["small_scaffold_cell_avg"] = averages["live_cells"].apply(small_scaffold_adjustment_cells)
 
     # Collagen adjustment (convert from ug to pg)
     averages["small_scaffold_collagen_pg"] = averages["sircol_collagen_ug"].apply(
-        lambda x: small_scaffold_adjustment(x) * 10e6
+        lambda x: small_scaffold_adjustment_collagen(x)
     )
     
     return averages
@@ -113,6 +118,12 @@ if __name__ == "__main__":
     file_path = Path("input/experimental.csv")
     df = extract_small_scaffold_experimental(file_path)
     print(df)
+
+    # Testing small scaffold adjustments
+    print("===== SMALL SCAFFOLD ADJUSTMENTS =====")
+    test_collagen = 32
+    adjusted_collagen = small_scaffold_adjustment_collagen(test_collagen)
+    print(f"Adjusted collagen for {test_collagen} ug: {adjusted_collagen}")
 
 
 

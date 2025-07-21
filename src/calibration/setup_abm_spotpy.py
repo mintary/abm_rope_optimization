@@ -114,7 +114,12 @@ class spotpyABM(object):
             config_path_names (list[str]): List of configuration file names to use for the simulation. We run the simulation for each config file in the list.
         Returns:
             list[float]: List of tracked biomarkers at the specified ticks for each config file, flattened into a single list.
-            This has the form: [gh2_cell_72h, gh2_collagen_72h, gh2_cell_144h, gh2_collagen_144h, ...]
+            This has the form: 
+            ```
+            [gh2_collagen_72, gh2_cell_72, gh2_collagen_144, gh2_cell_144, 
+            gh5_collagen_72, gh5_cell_72, gh5_collagen_144, gh5_cell_144, 
+            gh10_collagen_72, gh10_cell_72, gh10_collagen_144, gh10_cell_144]
+            ```
         """
         run_id = uuid.uuid4().hex 
 
@@ -144,6 +149,7 @@ class spotpyABM(object):
 
         results: list[float] = []
 
+        # Run simulation for GH2, GH5, then GH10
         for config_file_name in config_path_names:
             config_path = config_dir / config_file_name
             biomarker_output_dir = run_id_dir / "output"
@@ -164,14 +170,15 @@ class spotpyABM(object):
                 cwd=run_id_dir, # We set this to the cwd where the simulation is run
             )
 
-            # Flatten the result into a single list, preserving the order of tracked_ticks
-            # This ensures we get results in the order: [gh2_cell_72h, gh2_collagen_72h, gh2_cell_144h, gh2_collagen_144h, ...]
+            print(f"Simulation results for config {config_file_name}: {run_results}")
+
+            # Flatten the result into a single list with the format:
+            # [gh2_collagen_72h, gh2_cell_72h, gh2_collagen_144h, gh2_cell_144h, ...]
             for tick in self.tracked_ticks:
                 if tick in run_results:
                     tick_result = run_results[tick]
-                    results.extend(tick_result.values())
-                else:
-                    print(f"Tick {tick} not found in simulation results for config {config_file_name}")
+                    flattened_result = [tick_result[biomarker] for biomarker in self.tracked_biomarkers]
+                    results.extend(flattened_result)
 
         return results
     
@@ -179,7 +186,9 @@ class spotpyABM(object):
         """
         Returns the evaluation data in the form:
         ```
-        [gh2_cell_72h, gh2_collagen_72h, gh2_cell_144h, gh2_collagen_144h, ...]
+        [gh2_collagen_72, gh2_cell_72, gh2_collagen_144, gh2_cell_144, 
+        gh5_collagen_72, gh5_cell_72, gh5_collagen_144, gh5_cell_144, 
+        gh10_collagen_72, gh10_cell_72, gh10_collagen_144, gh10_cell_144]
         ```
         """
         df = extract_small_scaffold_experimental(self.experimental_data_file)
@@ -192,12 +201,12 @@ class spotpyABM(object):
             
             group_data = group_data[(group_data['time_hour'] != 216) & (group_data['time_hour'] != 0)]
             
-            # Round cell counts to integers then convert to float
-            cell_values = [float(round(x)) for x in group_data['small_scaffold_cell_avg'].tolist()]
-            evaluation_data.extend(cell_values)
-            
-            collagen_values = [float(val) for val in group_data['small_scaffold_collagen_pg'].tolist()]
-            evaluation_data.extend(collagen_values)
+            # Extract the values for collagen and cells at 72h and 144h
+            for time_hour in [72, 144]:
+                if time_hour in group_data['time_hour'].values:
+                    row = group_data[group_data['time_hour'] == time_hour].iloc[0] 
+                    evaluation_data.append(row['small_scaffold_collagen_pg'])
+                    evaluation_data.append(row['small_scaffold_cell_avg'])
 
         return evaluation_data
 
