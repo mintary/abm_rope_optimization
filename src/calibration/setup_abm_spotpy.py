@@ -116,9 +116,9 @@ class spotpyABM(object):
             list[float]: List of tracked biomarkers at the specified ticks for each config file, flattened into a single list.
             This has the form: 
             ```
-            [gh2_collagen_72, gh2_cell_72, gh2_collagen_144, gh2_cell_144, 
-            gh5_collagen_72, gh5_cell_72, gh5_collagen_144, gh5_cell_144, 
-            gh10_collagen_72, gh10_cell_72, gh10_collagen_144, gh10_cell_144]
+            [gh2_collagen_72, gh2_cell_72, gh2_cell_144, gh2_collagen_144, 
+            gh5_collagen_72, gh5_cell_72, gh5_cell_144, gh5_collagen_144, 
+            gh10_collagen_72, gh10_cell_72, gh10_cell_144, gh10_collagen_144]
             ```
         """
         run_id = uuid.uuid4().hex 
@@ -186,9 +186,9 @@ class spotpyABM(object):
         """
         Returns the evaluation data in the form:
         ```
-        [gh2_collagen_72, gh2_cell_72, gh2_collagen_144, gh2_cell_144, 
-        gh5_collagen_72, gh5_cell_72, gh5_collagen_144, gh5_cell_144, 
-        gh10_collagen_72, gh10_cell_72, gh10_collagen_144, gh10_cell_144]
+        [gh2_cell_72, gh2_collagen_72, gh2_cell_144, gh2_collagen_144, 
+        gh5_cell_72, gh5_collagen_72, gh5_cell_144, gh5_collagen_144, 
+        gh10_cell_72, gh10_collagen_72, gh10_cell_144, gh10_collagen_144]
         ```
         """
         df = extract_small_scaffold_experimental(self.experimental_data_file)
@@ -205,8 +205,8 @@ class spotpyABM(object):
             for time_hour in [72, 144]:
                 if time_hour in group_data['time_hour'].values:
                     row = group_data[group_data['time_hour'] == time_hour].iloc[0] 
-                    evaluation_data.append(row['small_scaffold_collagen_pg'])
                     evaluation_data.append(row['small_scaffold_cell_avg'])
+                    evaluation_data.append(row['small_scaffold_collagen_pg'])
 
         return evaluation_data
 
