@@ -135,6 +135,9 @@ def run(ctx,
     main_logger.info(f"Starting sampling with {num_iterations} iterations")
     sampler.sample(
         repetitions=num_iterations,
+        repetitions_first_run=int(num_iterations * 0.8),
+        subsets=6,
+        percentage_first_run=max(50, int(num_iterations * 0.08))
     )
     
     main_logger.info("Sampling completed, generating final report")
