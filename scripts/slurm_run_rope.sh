@@ -165,8 +165,8 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --save-runs|-sr)
-            SAVE_RUNS=true
-            shift
+            SAVE_RUNS="$2"
+            shift 2
             ;;
         --repetitions-first-run|-rf)
             NUM_REPS_FIRST_RUN="$2"
