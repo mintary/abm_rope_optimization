@@ -133,8 +133,13 @@ fi
 LOG_LEVEL="DEBUG"
 PARAM_RANKING="random_forest"
 PARAM_NUM=5
-NUM_ITERATIONS=200
+NUM_ITERATIONS=800
 PARALLEL="mpc"
+SUBSETS=6
+NUM_REPS_FIRST_RUN=400
+PERCENTAGE_FIRST_RUN=0.1
+PERCENTAGE_FOLLOWING_RUNS=0.1
+SAVE_RUNS=false
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -159,6 +164,26 @@ while [[ $# -gt 0 ]]; do
             PARALLEL="$2"
             shift 2
             ;;
+        --save-runs|-sr)
+            SAVE_RUNS=true
+            shift
+            ;;
+        --repetitions-first-run|-rf)
+            NUM_REPS_FIRST_RUN="$2"
+            shift 2
+            ;;
+        --subsets|-sbs)
+            SUBSETS="$2"
+            shift 2
+            ;;
+        --percentage-first-run|-pfr)
+            PERCENTAGE_FIRST_RUN="$2"
+            shift 2
+            ;;
+        --percentage-following-runs|-pfrs)
+            PERCENTAGE_FOLLOWING_RUNS="$2"
+            shift 2
+            ;;
         --help|-h)
             echo "Usage: $0 [OPTIONS]"
             echo ""
@@ -166,8 +191,13 @@ while [[ $# -gt 0 ]]; do
             echo "  -l, --log-level       Set logging level (DEBUG|INFO|WARNING|ERROR|CRITICAL)"
             echo "  -pr, --param-ranking  Parameter ranking method (random_forest|morris)"
             echo "  -pn, --param-num      Number of parameters to rank (default: 5)"
-            echo "  -i, --num-iterations  Number of optimization iterations (default: 200)"
+            echo "  -i, --num-iterations  Number of optimization iterations (default: 800)"
             echo "  -p, --parallel        Parallelization method (mpc|mpi|seq)"
+            echo "  -sr, --save-runs      Save individual simulation runs (default: false)"
+            echo "  -rf, --repetitions-first-run  Number of repetitions for the first run (default: 400)"
+            echo "  -sbs, --subsets       Number of subsets for the ROPE sampler (default: 6)"
+            echo "  -pfr, --percentage-first-run  Percentage of the first run to use for the ROPE sampler (default: 0.1)"
+            echo "  -pfrs, --percentage-following-runs  Percentage of the following runs to use for the ROPE sampler (default: 0.1)"
             echo "  -h, --help           Show this help message"
             exit 0
             ;;
@@ -187,6 +217,14 @@ echo "  Iterations: $NUM_ITERATIONS"
 echo "  Parallelization: $PARALLEL"
 echo "  Run Directory: $RUN_DIR"
 echo "  Binary Directory: $BIN_DIR"
+echo "  Sensitivity Analysis CSV: $SENSITIVITY_CSV"
+echo "  Experimental Data CSV: $EXPERIMENTAL_CSV"
+echo "  Config Directory: $CONFIG_DIR"
+echo "  Save Runs: $SAVE_RUNS"
+echo "  Repetitions First Run: $NUM_REPS_FIRST_RUN"
+echo "  Subsets: $SUBSETS"
+echo "  Percentage First Run: $PERCENTAGE_FIRST_RUN"
+echo "  Percentage Following Runs: $PERCENTAGE_FOLLOWING_RUNS"
 echo ""
 
 cd "$PROJECT_ROOT"
@@ -203,7 +241,13 @@ python -m src.calibration.run_rope \
     --experimental-data-csv "$EXPERIMENTAL_CSV" \
     --config-file-dir "$CONFIG_DIR" \
     --bin-dir "$BIN_DIR" \
-    --parallel "$PARALLEL" > output/output.txt 2>&1
+    --parallel "$PARALLEL" \
+    --save-runs "$SAVE_RUNS" \
+    --repetitions-first-run "$NUM_REPS_FIRST_RUN" \
+    --subsets "$SUBSETS" \
+    --percentage-first-run "$PERCENTAGE_FIRST_RUN" \
+    --percentage-following-runs "$PERCENTAGE_FOLLOWING_RUNS" \
+    > output/output.txt 2>&1
 
 ROPE_EXIT_CODE=$?
 echo "ROPE completed with exit code: $ROPE_EXIT_CODE"

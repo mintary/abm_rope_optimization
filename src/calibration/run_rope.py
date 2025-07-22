@@ -69,8 +69,16 @@ logger = logging.getLogger(__name__)
               help="Directory containing the ABM simulation binary files.")
 @click.option('--parallel', '-p', type=click.Choice(['mpc', 'mpi', 'seq'], case_sensitive=False), default='mpc',
               help="Parallelization method to use.")
-@click.option('--save-runs', '-sr', is_flag=True, default=False,
+@click.option('--save-runs', '-sr', type=bool, default=False,
               help="Flag to save individual simulation runs. If not set, only the final optimization results are saved.")
+@click.option('--repetitions-first-run', '-rf', default=0, type=int,
+              help="Number of repetitions for the first run.")
+@click.option('--subsets', '-sbs', default=6, type=int,
+              help="Number of subsets for the ROPE sampler.")
+@click.option('--percentage-first-run', '-pfr', default=0.1, type=float,
+              help="Percentage of the first run to use for the ROPE sampler.")
+@click.option('--percentage-following-runs', '-pfrs', default=0.1, type=float,
+              help="Percentage of the following runs to use for the ROPE sampler.")
 @click.pass_context
 def run(ctx, 
         log_level: str,
@@ -83,7 +91,11 @@ def run(ctx,
         bin_dir: Path,
         experimental_data_csv: Path,
         parallel: str,
-        save_runs: bool
+        save_runs: bool,
+        repetitions_first_run: int,
+        subsets: int,
+        percentage_first_run: float,
+        percentage_following_runs: float
         ):
     """
     Command line interface for running the ABM simulation with spotpy.
@@ -139,9 +151,10 @@ def run(ctx,
     main_logger.info(f"Starting sampling with {num_iterations} iterations")
     sampler.sample(
         repetitions=num_iterations,
-        repetitions_first_run=int(num_iterations * 0.8),
-        subsets=6,
-        percentage_first_run=max(50, int(num_iterations * 0.08))
+        repetitions_first_run=repetitions_first_run if repetitions_first_run > 0 else num_iterations // 2,
+        subsets=subsets,
+        percentage_first_run=percentage_first_run,
+        percentage_following_runs=percentage_following_runs
     )
     
     main_logger.info("Sampling completed, generating final report")
