@@ -7,9 +7,22 @@ The scripts for submission to the SLURM workload manager are found in the `scrip
 To submit a job:
 
 ```bash
-mkdir -p slurm_logs
 export EMAIL=emily.wang10@mail.mcgill.ca
-sbatch --mail-user=$EMAIL --output ./slurm_logs/slurm-%j.out scripts/slurm_run_rope.sh
+sbatch --mail-user=$EMAIL scripts/slurm_run_rope.sh
+```
+
+Adjusting settings:
+
+```bash
+export EMAIL=emily.wang10@mail.mcgill.ca
+sbatch \
+    --mail-user=$EMAIL \
+    --time=5:00:00
+    scripts/slurm_run_rope.sh \
+    --num-iterations 1000 \
+    --repetitions-first-run 500 \
+    --subsets 8 \
+    --percentage-first-run 0.25 \
 ```
 
 ### Mock simulation with SLURM
