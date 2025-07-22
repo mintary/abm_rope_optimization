@@ -28,8 +28,9 @@ class spotpyABM(object):
             tracked_biomarkers: list[str] = ["TotalFibroblast", "Collagen"],
             tracked_ticks: list[int] = [constants.TICKS_PER_DAY * 3, constants.TICKS_PER_DAY * 6],
             error_function: Callable[[list[float], list[float]], float] = rmse,
-            experimental_data_file: Path = Path("input/experimental.csv")
-        ):
+            experimental_data_file: Path = Path("input/experimental.csv"),
+            save_runs: bool = False
+            ):
         """
         Args:
             subprocess_run_dir (Path): Directory where all the subprocess runs will be executed.
@@ -53,6 +54,7 @@ class spotpyABM(object):
         self.tracked_ticks = tracked_ticks
         self.error_function = error_function
         self.experimental_data_file = experimental_data_file
+        self.save_runs = save_runs
         
         # Progress tracking
         self.iteration_count = 0
@@ -179,6 +181,10 @@ class spotpyABM(object):
                     tick_result = run_results[tick]
                     flattened_result = [tick_result[biomarker] for biomarker in self.tracked_biomarkers]
                     results.extend(flattened_result)
+
+        # Remove directory if save_runs is False
+        if not self.save_runs:
+            shutil.rmtree(run_id_dir)
 
         return results
     

@@ -69,6 +69,8 @@ logger = logging.getLogger(__name__)
               help="Directory containing the ABM simulation binary files.")
 @click.option('--parallel', '-p', type=click.Choice(['mpc', 'mpi', 'seq'], case_sensitive=False), default='mpc',
               help="Parallelization method to use.")
+@click.option('--save-runs', '-sr', is_flag=True, default=False,
+              help="Flag to save individual simulation runs. If not set, only the final optimization results are saved.")
 @click.pass_context
 def run(ctx, 
         log_level: str,
@@ -80,7 +82,8 @@ def run(ctx,
         config_file_dir: Path,
         bin_dir: Path,
         experimental_data_csv: Path,
-        parallel: str
+        parallel: str,
+        save_runs: bool
         ):
     """
     Command line interface for running the ABM simulation with spotpy.
@@ -121,6 +124,7 @@ def run(ctx,
         experimental_data_file=experimental_data_csv,
         num_ticks=289,
         tracked_ticks=[144, 288],
+        save_runs=save_runs
     )
 
     main_logger.info(f"Creating ROPE sampler with {parallel} parallelization")
