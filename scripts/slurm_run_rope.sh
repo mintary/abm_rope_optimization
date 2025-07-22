@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --account=def-nicoleli
-#SBATCH --time=01:00:00
+#SBATCH --time=${RUNTIME:-01:00:00}
 #SBATCH --cpus-per-task=32
 #SBATCH --gpus-per-node=2
 #SBATCH --mem=64000M
