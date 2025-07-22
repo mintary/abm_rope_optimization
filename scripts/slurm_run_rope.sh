@@ -214,9 +214,6 @@ if [ $ROPE_EXIT_CODE -eq 0 ]; then
     echo "ROPE optimization completed successfully, running parameter extraction..."
     python -m src.post_calibration.parameter_extraction >> output/output.txt 2>&1
     
-    # Copy output files after parameter extraction
-    copy_output_to_submission
-    
     echo "Running validation..."
     python -m src.post_calibration.validation \
         --param-file "$PROJECT_ROOT/output/rope_abm_optimization.csv" \
