@@ -44,12 +44,11 @@ Adjusting Monte Carlo settings:
 export EMAIL=emily.wang10@mail.mcgill.ca
 sbatch \
     --mail-user=$EMAIL \
-    --time=3:00:00 \
+    --time=7:00:00 \
     scripts/slurm_run_spotpy.sh \
     --algorithm mc \
     --mc-repetitions 2000 \
-    --parallel mpi \
-    --param-num 7
+    --parallel mpi
 ```
 
 ### SCE-UA Algorithm
@@ -67,14 +66,10 @@ Adjusting SCE-UA settings:
 export EMAIL=emily.wang10@mail.mcgill.ca
 sbatch \
     --mail-user=$EMAIL \
-    --time=4:00:00 \
+    --time=6:00:00 \
     scripts/slurm_run_spotpy.sh \
     --algorithm sceua \
     --num-iterations 1200 \
-    --sceua-ngs 10 \
-    --sceua-kstop 5 \
-    --sceua-peps 0.05 \
-    --sceua-pcento 0.05 \
     --parallel mpi
 ```
 
