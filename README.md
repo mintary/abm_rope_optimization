@@ -29,6 +29,10 @@ sbatch \
     --percentage-following-runs 0.15
 ```
 
+## Other algorithms
+> [!warning]
+> These aren't working yet :(
+
 ### Monte Carlo Algorithm
 
 To submit a Monte Carlo sampling job:
@@ -50,10 +54,6 @@ sbatch \
     --mc-repetitions 2000 \
     --parallel mpi
 ```
-
-## Other algorithms
-> [!warning]
-> These aren't working yet :(
 
 ### SCE-UA Algorithm
 
