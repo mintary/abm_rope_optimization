@@ -19,7 +19,7 @@ Adjusting ROPE settings:
 export EMAIL=emily.wang10@mail.mcgill.ca
 sbatch \
     --mail-user=$EMAIL \
-    --time=5:00:00 \
+    --time=05:00:00 \
     scripts/slurm_run_spotpy.sh \
     --algorithm rope \
     --num-iterations 1000 \
@@ -44,7 +44,7 @@ Adjusting Monte Carlo settings:
 export EMAIL=emily.wang10@mail.mcgill.ca
 sbatch \
     --mail-user=$EMAIL \
-    --time=7:00:00 \
+    --time=07:00:00 \
     scripts/slurm_run_spotpy.sh \
     --algorithm mc \
     --mc-repetitions 2000 \
@@ -66,7 +66,7 @@ Adjusting SCE-UA settings:
 export EMAIL=emily.wang10@mail.mcgill.ca
 sbatch \
     --mail-user=$EMAIL \
-    --time=6:00:00 \
+    --time=06:00:00 \
     scripts/slurm_run_spotpy.sh \
     --algorithm sceua \
     --num-iterations 1200 \
