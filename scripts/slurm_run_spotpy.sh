@@ -83,7 +83,7 @@ pip install --upgrade pip || { echo "Failed to upgrade pip"; exit 1; }
 
 # Install packages
 echo "Installing dependencies from list..."
-pip install --no-index pandas click numpy pathos spotpy scikit-learn || { echo "Failed to install Python dependencies"; exit 1; }
+pip install --no-index pandas click numpy pathos spotpy scikit-learn mpi4py || { echo "Failed to install Python dependencies"; exit 1; }
 
 pip freeze > installed_requirements.txt
 
@@ -135,15 +135,33 @@ PARAM_RANKING="random_forest"
 PARAM_NUM=5
 NUM_ITERATIONS=800
 PARALLEL="mpc"
+SAVE_RUNS=false
+
+# Algorithm selection
+ALGORITHM="rope"  # Default algorithm
+
+# ROPE-specific parameters
 SUBSETS=6
 NUM_REPS_FIRST_RUN=400
 PERCENTAGE_FIRST_RUN=0.1
 PERCENTAGE_FOLLOWING_RUNS=0.1
-SAVE_RUNS=false
+
+# Monte Carlo-specific parameters
+MC_REPETITIONS=1000
+
+# SCE-UA-specific parameters
+SCEUA_NGS=20
+SCEUA_KSTOP=100
+SCEUA_PEPS=0.0000001
+SCEUA_PCENTO=0.0000001
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --algorithm|-a)
+            ALGORITHM="$2"
+            shift 2
+            ;;
         --log-level|-l)
             LOG_LEVEL="$2"
             shift 2
@@ -168,6 +186,7 @@ while [[ $# -gt 0 ]]; do
             SAVE_RUNS="$2"
             shift 2
             ;;
+        # ROPE-specific parameters
         --repetitions-first-run|-rf)
             NUM_REPS_FIRST_RUN="$2"
             shift 2
@@ -184,21 +203,56 @@ while [[ $# -gt 0 ]]; do
             PERCENTAGE_FOLLOWING_RUNS="$2"
             shift 2
             ;;
+        # Monte Carlo-specific parameters
+        --mc-repetitions|-mcr)
+            MC_REPETITIONS="$2"
+            shift 2
+            ;;
+        # SCE-UA-specific parameters
+        --sceua-ngs|-ngs)
+            SCEUA_NGS="$2"
+            shift 2
+            ;;
+        --sceua-kstop|-kstop)
+            SCEUA_KSTOP="$2"
+            shift 2
+            ;;
+        --sceua-peps|-peps)
+            SCEUA_PEPS="$2"
+            shift 2
+            ;;
+        --sceua-pcento|-pcento)
+            SCEUA_PCENTO="$2"
+            shift 2
+            ;;
         --help|-h)
             echo "Usage: $0 [OPTIONS]"
             echo ""
-            echo "Options:"
+            echo "General Options:"
+            echo "  -a, --algorithm       Algorithm to use (rope|mc|sceua)"
             echo "  -l, --log-level       Set logging level (DEBUG|INFO|WARNING|ERROR|CRITICAL)"
             echo "  -pr, --param-ranking  Parameter ranking method (random_forest|morris)"
             echo "  -pn, --param-num      Number of parameters to rank (default: 5)"
             echo "  -i, --num-iterations  Number of optimization iterations (default: 800)"
             echo "  -p, --parallel        Parallelization method (mpc|mpi|seq)"
             echo "  -sr, --save-runs      Save individual simulation runs (default: false)"
-            echo "  -rf, --repetitions-first-run  Number of repetitions for the first run (default: 400)"
-            echo "  -sbs, --subsets       Number of subsets for the ROPE sampler (default: 6)"
-            echo "  -pfr, --percentage-first-run  Percentage of the first run to use for the ROPE sampler (default: 0.1)"
-            echo "  -pfrs, --percentage-following-runs  Percentage of the following runs to use for the ROPE sampler (default: 0.1)"
-            echo "  -h, --help           Show this help message"
+            echo ""
+            echo "ROPE-specific Options:"
+            echo "  -rf, --repetitions-first-run     Number of repetitions for the first run (default: 400)"
+            echo "  -sbs, --subsets                  Number of subsets for the ROPE sampler (default: 6)"
+            echo "  -pfr, --percentage-first-run     Percentage of the first run (default: 0.1)"
+            echo "  -pfrs, --percentage-following-runs  Percentage of following runs (default: 0.1)"
+            echo ""
+            echo "Monte Carlo-specific Options:"
+            echo "  -mcr, --mc-repetitions           Number of Monte Carlo repetitions (default: 1000)"
+            echo ""
+            echo "SCE-UA-specific Options:"
+            echo "  -ngs, --sceua-ngs                Number of complexes (default: 7)"
+            echo "  -kstop, --sceua-kstop            Number of shuffling loops (default: 3)"
+            echo "  -peps, --sceua-peps              Convergence tolerance (default: 0.1)"
+            echo "  -pcento, --sceua-pcento          Percentage for convergence (default: 0.1)"
+            echo ""
+            echo "  -h, --help                       Show this help message"
             exit 0
             ;;
         *)
@@ -210,57 +264,99 @@ while [[ $# -gt 0 ]]; do
 done
 
 echo "Configuration:"
+echo "  Algorithm: $ALGORITHM"
 echo "  Log Level: $LOG_LEVEL"
 echo "  Parameter Ranking: $PARAM_RANKING"
 echo "  Number of Parameters: $PARAM_NUM"
 echo "  Iterations: $NUM_ITERATIONS"
 echo "  Parallelization: $PARALLEL"
-echo "  Run Directory: $RUN_DIR"
-echo "  Binary Directory: $BIN_DIR"
-echo "  Sensitivity Analysis CSV: $SENSITIVITY_CSV"
-echo "  Experimental Data CSV: $EXPERIMENTAL_CSV"
-echo "  Config Directory: $CONFIG_DIR"
 echo "  Save Runs: $SAVE_RUNS"
-echo "  Repetitions First Run: $NUM_REPS_FIRST_RUN"
-echo "  Subsets: $SUBSETS"
-echo "  Percentage First Run: $PERCENTAGE_FIRST_RUN"
-echo "  Percentage Following Runs: $PERCENTAGE_FOLLOWING_RUNS"
-echo ""
+
+case $ALGORITHM in
+    rope)
+        echo "  ROPE Parameters:"
+        echo "    Repetitions First Run: $NUM_REPS_FIRST_RUN"
+        echo "    Subsets: $SUBSETS"
+        echo "    Percentage First Run: $PERCENTAGE_FIRST_RUN"
+        echo "    Percentage Following Runs: $PERCENTAGE_FOLLOWING_RUNS"
+        ;;
+    mc)
+        echo "  Monte Carlo Parameters:"
+        echo "    MC Repetitions: $MC_REPETITIONS"
+        ;;
+    sceua)
+        echo "  SCE-UA Parameters:"
+        echo "    NGS (complexes): $SCEUA_NGS"
+        echo "    KSTOP: $SCEUA_KSTOP"
+        echo "    PEPS: $SCEUA_PEPS"
+        echo "    PCENTO: $SCEUA_PCENTO"
+        ;;
+    *)
+        echo "Error: Unknown algorithm '$ALGORITHM'. Use: rope, mc, or sceua"
+        exit 1
+        ;;
+esac
 
 cd "$PROJECT_ROOT"
 
-echo "Starting ROPE optimization..."
-echo "About to run ROPE from directory: $(pwd)"
-python -m src.calibration.run_rope \
-    --log-level "$LOG_LEVEL" \
-    --param-ranking "$PARAM_RANKING" \
-    --param-num "$PARAM_NUM" \
-    --num-iterations "$NUM_ITERATIONS" \
-    --run-dir-parent "$RUN_DIR" \
-    --sensitivity-analysis-csv "$SENSITIVITY_CSV" \
-    --experimental-data-csv "$EXPERIMENTAL_CSV" \
-    --config-file-dir "$CONFIG_DIR" \
-    --bin-dir "$BIN_DIR" \
-    --parallel "$PARALLEL" \
-    --save-runs "$SAVE_RUNS" \
-    --repetitions-first-run "$NUM_REPS_FIRST_RUN" \
-    --subsets "$SUBSETS" \
-    --percentage-first-run "$PERCENTAGE_FIRST_RUN" \
-    --percentage-following-runs "$PERCENTAGE_FOLLOWING_RUNS" \
-    > output/output.txt 2>&1
+echo "Starting $ALGORITHM optimization..."
+echo "About to run $ALGORITHM from directory: $(pwd)"
 
-ROPE_EXIT_CODE=$?
-echo "ROPE completed with exit code: $ROPE_EXIT_CODE"
-echo "Contents after ROPE:"
-ls -la output/ 2>/dev/null || echo "No output directory after ROPE"
+# Build common arguments
+COMMON_ARGS=(
+    --log-level "$LOG_LEVEL"
+    --param-ranking "$PARAM_RANKING"
+    --param-num "$PARAM_NUM"
+    --num-iterations "$NUM_ITERATIONS"
+    --run-dir-parent "$RUN_DIR"
+    --sensitivity-analysis-csv "$SENSITIVITY_CSV"
+    --experimental-data-csv "$EXPERIMENTAL_CSV"
+    --config-file-dir "$CONFIG_DIR"
+    --bin-dir "$BIN_DIR"
+    --parallel "$PARALLEL"
+    --save-runs "$SAVE_RUNS"
+)
 
-if [ $ROPE_EXIT_CODE -eq 0 ]; then
-    echo "ROPE optimization completed successfully, running parameter extraction..."
+# Run the appropriate algorithm
+case $ALGORITHM in
+    rope)
+        python -m src.calibration.run_rope \
+            "${COMMON_ARGS[@]}" \
+            --repetitions-first-run "$NUM_REPS_FIRST_RUN" \
+            --subsets "$SUBSETS" \
+            --percentage-first-run "$PERCENTAGE_FIRST_RUN" \
+            --percentage-following-runs "$PERCENTAGE_FOLLOWING_RUNS" \
+            > output/output.txt 2>&1
+        ;;
+    mc)
+        python -m src.calibration.run_mc \
+            "${COMMON_ARGS[@]}" \
+            --mc-repetitions "$MC_REPETITIONS" \
+            > output/output.txt 2>&1
+        ;;
+    sceua)
+        python -m src.calibration.run_sceua \
+            "${COMMON_ARGS[@]}" \
+            --sceua-ngs "$SCEUA_NGS" \
+            --sceua-kstop "$SCEUA_KSTOP" \
+            --sceua-peps "$SCEUA_PEPS" \
+            --sceua-pcento "$SCEUA_PCENTO" \
+            > output/output.txt 2>&1
+        ;;
+esac
+
+OPTIMIZATION_EXIT_CODE=$?
+echo "$ALGORITHM completed with exit code: $OPTIMIZATION_EXIT_CODE"
+echo "Contents after $ALGORITHM:"
+ls -la output/ 2>/dev/null || echo "No output directory after $ALGORITHM"
+
+if [ $OPTIMIZATION_EXIT_CODE -eq 0 ]; then
+    echo "$ALGORITHM optimization completed successfully, running parameter extraction..."
     python -m src.post_calibration.parameter_extraction >> output/output.txt 2>&1
     
     echo "Running validation..."
     python -m src.post_calibration.validation \
-        --param-file "$PROJECT_ROOT/output/rope_abm_optimization.csv" \
+        --param-file "$PROJECT_ROOT/output/${ALGORITHM}_abm_optimization.csv" \
         --run-dir "$RUN_DIR" \
         --bin-dir "$BIN_DIR" \
         --config-dir "$CONFIG_DIR" \
@@ -272,8 +368,8 @@ if [ $ROPE_EXIT_CODE -eq 0 ]; then
 
     FINAL_EXIT_CODE=$?
 else
-    echo "ROPE optimization failed with exit code: $ROPE_EXIT_CODE"
-    FINAL_EXIT_CODE=$ROPE_EXIT_CODE
+    echo "$ALGORITHM optimization failed with exit code: $OPTIMIZATION_EXIT_CODE"
+    FINAL_EXIT_CODE=$OPTIMIZATION_EXIT_CODE
 fi
 
 if [ $FINAL_EXIT_CODE -eq 0 ]; then
