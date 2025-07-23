@@ -51,6 +51,10 @@ sbatch \
     --parallel mpi
 ```
 
+## Other algorithms
+> [!warning]
+> These aren't working yet :(
+
 ### SCE-UA Algorithm
 
 To submit a SCE-UA optimization job:
