@@ -4,26 +4,117 @@
 
 The scripts for submission to the SLURM workload manager are found in the `scripts/` directory. It's very important that you run the script such that your current working directory is the project root! In the future, we may make it possible to run it from everywhere.
 
-To submit a job:
+### ROPE Algorithm
+
+To submit a ROPE optimization job:
 
 ```bash
 export EMAIL=emily.wang10@mail.mcgill.ca
-sbatch --mail-user=$EMAIL scripts/slurm_run_rope.sh
+sbatch --mail-user=$EMAIL scripts/slurm_run_spotpy.sh --algorithm rope
 ```
 
-Adjusting settings:
+Adjusting ROPE settings:
 
 ```bash
 export EMAIL=emily.wang10@mail.mcgill.ca
 sbatch \
     --mail-user=$EMAIL \
-    --time=5:00:00
-    scripts/slurm_run_rope.sh \
+    --time=5:00:00 \
+    scripts/slurm_run_spotpy.sh \
+    --algorithm rope \
     --num-iterations 1000 \
     --repetitions-first-run 500 \
     --subsets 8 \
     --percentage-first-run 0.25 \
+    --percentage-following-runs 0.15
 ```
+
+### Monte Carlo Algorithm
+
+To submit a Monte Carlo sampling job:
+
+```bash
+export EMAIL=emily.wang10@mail.mcgill.ca
+sbatch --mail-user=$EMAIL scripts/slurm_run_spotpy.sh --algorithm mc
+```
+
+Adjusting Monte Carlo settings:
+
+```bash
+export EMAIL=emily.wang10@mail.mcgill.ca
+sbatch \
+    --mail-user=$EMAIL \
+    --time=3:00:00 \
+    scripts/slurm_run_spotpy.sh \
+    --algorithm mc \
+    --mc-repetitions 2000 \
+    --parallel mpi \
+    --param-num 7
+```
+
+### SCE-UA Algorithm
+
+To submit a SCE-UA optimization job:
+
+```bash
+export EMAIL=emily.wang10@mail.mcgill.ca
+sbatch --mail-user=$EMAIL scripts/slurm_run_spotpy.sh --algorithm sceua
+```
+
+Adjusting SCE-UA settings:
+
+```bash
+export EMAIL=emily.wang10@mail.mcgill.ca
+sbatch \
+    --mail-user=$EMAIL \
+    --time=4:00:00 \
+    scripts/slurm_run_spotpy.sh \
+    --algorithm sceua \
+    --num-iterations 1200 \
+    --sceua-ngs 10 \
+    --sceua-kstop 5 \
+    --sceua-peps 0.05 \
+    --sceua-pcento 0.05 \
+    --parallel mpi
+```
+
+### Algorithm Comparison
+
+You can run multiple algorithms sequentially for comparison:
+
+```bash
+export EMAIL=emily.wang10@mail.mcgill.ca
+
+# Submit ROPE job
+ROPE_JOB=$(sbatch --mail-user=$EMAIL --parsable scripts/slurm_run_spotpy.sh --algorithm rope --num-iterations 800)
+
+# Submit Monte Carlo job (depends on ROPE completion)
+MC_JOB=$(sbatch --mail-user=$EMAIL --parsable --dependency=afterok:$ROPE_JOB scripts/slurm_run_spotpy.sh --algorithm mc --mc-repetitions 1000)
+
+# Submit SCE-UA job (depends on Monte Carlo completion)
+sbatch --mail-user=$EMAIL --dependency=afterok:$MC_JOB scripts/slurm_run_spotpy.sh --algorithm sceua --num-iterations 800
+```
+
+### Algorithm-Specific Parameters
+
+**ROPE Parameters:**
+
+- `--repetitions-first-run`: Number of repetitions for the first subset
+- `--subsets`: Number of parameter space refinement steps
+- `--percentage-first-run`: Percentage of best runs used for next step in first subset
+- `--percentage-following-runs`: Percentage of best runs used in subsequent subsets
+
+**Monte Carlo Parameters:**
+
+- `--mc-repetitions`: Total number of random samples to generate
+
+**SCE-UA Parameters:**
+
+- `--sceua-ngs`: Number of complexes in the population
+- `--sceua-kstop`: Shuffling loops before termination check
+- `--sceua-peps`: Convergence tolerance percentage
+- `--sceua-pcento`: Population range percentage for termination
+- `--sceua-ngs-max`: Maximum number of complexes
 
 ### Mock simulation with SLURM
 
@@ -42,7 +133,7 @@ sbatch --mail-user=$EMAIL --output ./slurm_logs/slurm-%j.out scripts/slurm_run_r
 #### Optimization
 
 - [ ] Record runtimes and memory taken for each number of iterations (100, 200, 300...)
-- [ ] Have another SPOTPY algorithm (i.e. pure Monte Carlo sampling) for comparison
+- [x] Have another SPOTPY algorithm (i.e. pure Monte Carlo sampling) for comparison
 - [ ] Automate optimizing for every biomarker separately, then running ROPE for all of them
 - [ ] Review the validation process to ensure it matches the manuscript
 
