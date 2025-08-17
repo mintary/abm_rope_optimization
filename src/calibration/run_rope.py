@@ -57,14 +57,14 @@ logger = logging.getLogger(__name__)
               help="Number of parameters to rank.")
 @click.option('--num-iterations', '-i', default=800, type=int, 
               help="Number of iterations for SPOTPY optimization.")
-@click.option('--run-dir-parent', '-r', type=click.Path(exists=True, file_okay=False, dir_okay=True),
+@click.option('--run-dir-parent', '-r', default=Path("output/rope_runs"), type=click.Path(exists=True, file_okay=False, dir_okay=True),
               help="Parent directory for simulation run subdirectories.")
-@click.option('--sensitivity-analysis-csv', '-s', type=click.Path(exists=True, dir_okay=False),
+@click.option('--sensitivity-analysis-csv', '-s', default=Path("input/sensitivity_analysis.csv"), type=click.Path(exists=True, dir_okay=False),
               help="CSV file containing sensitivity analysis results.")
-@click.option('--experimental-data-csv', '-e', required=True, type=click.Path(exists=True, dir_okay=False),
-             help="CSV file containing experimental/observed data for evaluation.")
-@click.option('--config-file-dir', '-c', default=Path("configFiles"), type=click.Path(exists=True, file_okay=False, dir_okay=True),
-              help="Directory containing configuration files.")
+@click.option('--experimental-data-csv', '-e', default=Path("input/experimental.csv"), type=click.Path(exists=True, dir_okay=False),
+              help="CSV file containing experimental/observed data for evaluation.")
+@click.option('--config-files', '-cn', default=["config_Scaffold"], type=list[click.Path(exists=True, file_okay=True, dir_okay=False)],
+              help="Comma-separated list of configuration files for the ABM simulation.")
 @click.option('--bin-dir', '-b', default=Path("bin"), type=click.Path(exists=True, file_okay=False, dir_okay=True),
               help="Directory containing the ABM simulation binary files.")
 @click.option('--parallel', '-p', type=click.Choice(['mpc', 'mpi', 'seq'], case_sensitive=False), default='mpc',
@@ -87,7 +87,7 @@ def run(ctx,
         num_iterations: int, 
         run_dir_parent: Path,
         sensitivity_analysis_csv: Path,
-        config_file_dir: Path,
+        config_file_paths: list[Path],
         bin_dir: Path,
         experimental_data_csv: Path,
         parallel: str,
@@ -114,7 +114,7 @@ def run(ctx,
     main_logger.info(f"Running for {num_iterations} iterations")
     run_dir_parent = Path(run_dir_parent)
     sensitivity_analysis_csv = Path(sensitivity_analysis_csv)
-    config_file_dir = Path(config_file_dir)
+    config_file_paths = [Path(p) for p in config_file_paths]
     bin_dir = Path(bin_dir)
     experimental_data_csv = Path(experimental_data_csv)
 

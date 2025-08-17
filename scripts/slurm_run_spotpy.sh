@@ -12,7 +12,7 @@
 # Create directory for storing slurm_logs
 mkdir -p slurm_logs
 
-module load StdEnv/2020 gcc/9.3.0 cuda/11.0 python/3.11 || { echo "Module load failed"; exit 1; }
+module load StdEnv/2020 gcc/9.3.0 cuda/11.0 python/3.11 mpi4py/4.0.0 || { echo "Module load failed"; exit 1; }
 
 # PACKAGE DIRECTORY AT FAILURE OR SUCCESS
 current_date=$(date +"%Y-%m-%d")
@@ -329,19 +329,10 @@ case $ALGORITHM in
             > output/output.txt 2>&1
         ;;
     mc)
-        python -m src.calibration.run_mc \
-            "${COMMON_ARGS[@]}" \
-            --mc-repetitions "$MC_REPETITIONS" \
-            > output/output.txt 2>&1
+        echo "Not implemented yet."
         ;;
     sceua)
-        python -m src.calibration.run_sceua \
-            "${COMMON_ARGS[@]}" \
-            --sceua-ngs "$SCEUA_NGS" \
-            --sceua-kstop "$SCEUA_KSTOP" \
-            --sceua-peps "$SCEUA_PEPS" \
-            --sceua-pcento "$SCEUA_PCENTO" \
-            > output/output.txt 2>&1
+        echo "Not implemented yet."
         ;;
 esac
 

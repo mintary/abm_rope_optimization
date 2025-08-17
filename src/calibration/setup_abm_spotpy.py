@@ -21,7 +21,7 @@ class spotpyABM(object):
             self, 
             subprocess_run_dir: Path,
             bin_dir: Path,
-            config_file_dir: Path,
+            config_file_paths: list[Path],
             chosen_params: list[str],
             all_params: pd.DataFrame,
             num_ticks: int = 289,
@@ -45,7 +45,7 @@ class spotpyABM(object):
         """
         self.subprocess_run_dir = subprocess_run_dir
         self.bin_dir = bin_dir
-        self.config_file_dir = config_file_dir
+        self.config_file_paths = config_file_paths
         self.chosen_params = chosen_params
         self.all_params = all_params
         self.params = []
@@ -108,12 +108,11 @@ class spotpyABM(object):
 
         return spotpy.parameter.generate(spotpy_params)
 
-    def simulation(self, vector: np.ndarray, config_path_names: list[str] = constants.CONFIG_FILE_NAMES) -> list[float]:
+    def simulation(self, vector: np.ndarray) -> list[float]:
         """
         Run the ABM simulation with the provided parameters.
         Args:
             vector (np.ndarray): Sampled parameter values from SpotPy. These are in the order of the chosen parameters.
-            config_path_names (list[str]): List of configuration file names to use for the simulation. We run the simulation for each config file in the list.
         Returns:
             list[float]: List of tracked biomarkers at the specified ticks for each config file, flattened into a single list.
             This has the form: 
@@ -139,10 +138,9 @@ class spotpyABM(object):
         config_dir = run_id_dir / "configFiles"
         config_dir.mkdir(parents=True, exist_ok=True)
 
-        for config_file_name in config_path_names:
-            source = self.config_file_dir / config_file_name
-            dest = config_dir / config_file_name
-            shutil.copy(source, dest)
+        for config_file_path in self.config_file_paths:
+            dest = config_dir / config_file_path.name
+            shutil.copy(config_file_path, dest)
 
         sample_output_path = run_id_dir / "Sample.txt"
 
@@ -152,8 +150,7 @@ class spotpyABM(object):
         results: list[float] = []
 
         # Run simulation for GH2, GH5, then GH10
-        for config_file_name in config_path_names:
-            config_path = config_dir / config_file_name
+        for config_file_path in self.config_file_paths:
             biomarker_output_dir = run_id_dir / "output"
             biomarker_output_dir.mkdir(parents=True, exist_ok=True)
             bin_stderr_path = biomarker_output_dir / "ABM_simulation_stderr.txt"
@@ -165,14 +162,14 @@ class spotpyABM(object):
                 bin_stdout_path=bin_stdout_path,
                 biomarker_output_dir=biomarker_output_dir,
                 sample_path=sample_output_path,
-                config_path=config_path,
+                config_path=config_file_path,
                 tracked_biomarkers=self.tracked_biomarkers,
                 num_ticks=self.num_ticks,
                 tracked_ticks=self.tracked_ticks,
                 cwd=run_id_dir, # We set this to the cwd where the simulation is run
             )
 
-            print(f"Simulation results for config {config_file_name}: {run_results}")
+            print(f"Simulation results for config {config_file_path.name}: {run_results}")
 
             # Flatten the result into a single list with the format:
             # [gh2_collagen_72h, gh2_cell_72h, gh2_collagen_144h, gh2_cell_144h, ...]
@@ -190,20 +187,21 @@ class spotpyABM(object):
     
     def evaluation(self) -> list[float]:
         """
-        Returns the evaluation data in the form:
-        ```
-        [gh2_cell_72, gh2_collagen_72, gh2_cell_144, gh2_collagen_144, 
-        gh5_cell_72, gh5_collagen_72, gh5_cell_144, gh5_collagen_144, 
-        gh10_cell_72, gh10_collagen_72, gh10_cell_144, gh10_collagen_144]
-        ```
+        Returns the evaluation data as a flat list of biomarker values for each configuration and tracked time point.
+        The format is:
+        [<config1_biomarker1_time1>, <config1_biomarker2_time1>, ..., <config1_biomarkerN_timeM>, 
+         <config2_biomarker1_time1>, ..., <configK_biomarkerN_timeM>]
+        where each entry corresponds to a biomarker value for a specific configuration and time point.
+        The order matches the configurations and tracked times specified in the setup.
         """
         df = extract_small_scaffold_experimental(self.experimental_data_file)
         df = df.sort_values(['group', 'time_hour']).reset_index(drop=True)
         
         evaluation_data: list[float] = []
 
-        for group in ['GH2', 'GH5', 'GH10']:
-            group_data = df[df['group'] == group].sort_values('time_hour')
+        for group in self.config_file_paths:
+            group_name = group.stem # Remove extension to get the group name
+            group_data = df[df['group'] == group_name].sort_values('time_hour')
             
             group_data = group_data[(group_data['time_hour'] != 216) & (group_data['time_hour'] != 0)]
             
