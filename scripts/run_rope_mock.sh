@@ -38,10 +38,12 @@ fi
 RUN_DIR="$PROJECT_ROOT/output/rope_runs"
 mkdir -p "$RUN_DIR"
 
+
+
 # Set up paths for the CLI arguments
 SENSITIVITY_CSV="$PROJECT_ROOT/input/sensitivity_analysis_mock.csv"
 EXPERIMENTAL_CSV="$PROJECT_ROOT/input/experimental.csv"
-CONFIG_DIR="$PROJECT_ROOT/input/configFiles"
+CONFIG_FILE_PATH="$PROJECT_ROOT/input/configFiles/config_Scaffold_GH2.txt"
 BIN_DIR="$PROJECT_ROOT/mock_testRun/bin"
 
 # Validate required files exist
@@ -52,11 +54,6 @@ fi
 
 if [ ! -f "$EXPERIMENTAL_CSV" ]; then
     echo "Error: Experimental data CSV not found at $EXPERIMENTAL_CSV"
-    exit 1
-fi
-
-if [ ! -d "$CONFIG_DIR" ]; then
-    echo "Error: Config files directory not found at $CONFIG_DIR"
     exit 1
 fi
 
@@ -136,7 +133,7 @@ python -m src.calibration.run_rope \
     --run-dir-parent "$RUN_DIR" \
     --sensitivity-analysis-csv "$SENSITIVITY_CSV" \
     --experimental-data-csv "$EXPERIMENTAL_CSV" \
-    --config-file-dir "$CONFIG_DIR" \
+    --config-file "$CONFIG_FILE_PATH" \
     --bin-dir "$BIN_DIR" \
     --parallel "$PARALLEL"
 
@@ -146,7 +143,8 @@ python -m src.post_calibration.validation \
     --param-file "$PROJECT_ROOT/output/rope_abm_optimization.csv" \
     --run-dir "$RUN_DIR" \
     --bin-dir "$BIN_DIR" \
-    --config-dir "$CONFIG_DIR" \
+    --config-dir "$(dirname "$CONFIG_FILE_PATH")" \
+    --config-file "$CONFIG_FILE_PATH" \
     --sensitivity-analysis-csv "$SENSITIVITY_CSV" \
     --param-ranking "$PARAM_RANKING" \
     --param-num "$PARAM_NUM" \

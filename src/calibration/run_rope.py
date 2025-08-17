@@ -63,8 +63,8 @@ logger = logging.getLogger(__name__)
               help="CSV file containing sensitivity analysis results.")
 @click.option('--experimental-data-csv', '-e', default=Path("input/experimental.csv"), type=click.Path(exists=True, dir_okay=False),
               help="CSV file containing experimental/observed data for evaluation.")
-@click.option('--config-files', '-cn', default=["config_Scaffold"], type=list[click.Path(exists=True, file_okay=True, dir_okay=False)],
-              help="Comma-separated list of configuration files for the ABM simulation.")
+@click.option('--config-file', '-cf', multiple=True, type=click.Path(exists=True, file_okay=True, dir_okay=False),
+              help="Path to a configuration file for the ABM simulation. Specify this option once per file.")
 @click.option('--bin-dir', '-b', default=Path("bin"), type=click.Path(exists=True, file_okay=False, dir_okay=True),
               help="Directory containing the ABM simulation binary files.")
 @click.option('--parallel', '-p', type=click.Choice(['mpc', 'mpi', 'seq'], case_sensitive=False), default='mpc',
@@ -81,22 +81,22 @@ logger = logging.getLogger(__name__)
               help="Percentage of the following runs to use for the ROPE sampler.")
 @click.pass_context
 def run(ctx, 
-        log_level: str,
-        param_ranking: str, 
-        param_num: int, 
-        num_iterations: int, 
-        run_dir_parent: Path,
-        sensitivity_analysis_csv: Path,
-        config_file_paths: list[Path],
-        bin_dir: Path,
-        experimental_data_csv: Path,
-        parallel: str,
-        save_runs: bool,
-        repetitions_first_run: int,
-        subsets: int,
-        percentage_first_run: float,
-        percentage_following_runs: float
-        ):
+    log_level: str,
+    param_ranking: str, 
+    param_num: int, 
+    num_iterations: int, 
+    run_dir_parent: Path,
+    sensitivity_analysis_csv: Path,
+    config_file,
+    bin_dir: Path,
+    experimental_data_csv: Path,
+    parallel: str,
+    save_runs: bool,
+    repetitions_first_run: int,
+    subsets: int,
+    percentage_first_run: float,
+    percentage_following_runs: float
+    ):
     """
     Command line interface for running the ABM simulation with spotpy.
     """
@@ -114,7 +114,7 @@ def run(ctx,
     main_logger.info(f"Running for {num_iterations} iterations")
     run_dir_parent = Path(run_dir_parent)
     sensitivity_analysis_csv = Path(sensitivity_analysis_csv)
-    config_file_paths = [Path(p) for p in config_file_paths]
+    config_file_paths = [Path(p) for p in config_file]
     bin_dir = Path(bin_dir)
     experimental_data_csv = Path(experimental_data_csv)
 
@@ -130,7 +130,7 @@ def run(ctx,
         error_function=normalized_biomarker_error,
         subprocess_run_dir=run_dir_parent,
         bin_dir=bin_dir,
-        config_file_dir=config_file_dir,
+        config_file_paths=config_file_paths,
         all_params=df,
         chosen_params=chosen_params,
         experimental_data_file=experimental_data_csv,

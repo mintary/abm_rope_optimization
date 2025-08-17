@@ -29,91 +29,24 @@ sbatch \
     --percentage-following-runs 0.15
 ```
 
-## Other algorithms
-> [!warning]
-> These aren't working yet :(
+## Passing the Number of Parameters to Optimize
 
-### Monte Carlo Algorithm
+You can specify the number of parameters to optimize in the ROPE algorithm using the `--param-num` (or `-pn`) option. This is supported both in SLURM scripts and when running locally. For example:
 
-To submit a Monte Carlo sampling job:
+**SLURM submission:**
 
 ```bash
 export EMAIL=emily.wang10@mail.mcgill.ca
-sbatch --mail-user=$EMAIL scripts/slurm_run_spotpy.sh --algorithm mc
+sbatch --mail-user=$EMAIL scripts/slurm_run_spotpy.sh --algorithm rope --param-num 4
 ```
 
-Adjusting Monte Carlo settings:
+**Local run:**
 
 ```bash
-export EMAIL=emily.wang10@mail.mcgill.ca
-sbatch \
-    --mail-user=$EMAIL \
-    --time=07:00:00 \
-    scripts/slurm_run_spotpy.sh \
-    --algorithm mc \
-    --mc-repetitions 2000 \
-    --parallel mpi
+python src/calibration/run_rope.py --param-num 4
 ```
 
-### SCE-UA Algorithm
-
-To submit a SCE-UA optimization job:
-
-```bash
-export EMAIL=emily.wang10@mail.mcgill.ca
-sbatch --mail-user=$EMAIL scripts/slurm_run_spotpy.sh --algorithm sceua
-```
-
-Adjusting SCE-UA settings:
-
-```bash
-export EMAIL=emily.wang10@mail.mcgill.ca
-sbatch \
-    --mail-user=$EMAIL \
-    --time=06:00:00 \
-    scripts/slurm_run_spotpy.sh \
-    --algorithm sceua \
-    --num-iterations 1200 \
-    --parallel mpi
-```
-
-### Algorithm Comparison
-
-You can run multiple algorithms sequentially for comparison:
-
-```bash
-export EMAIL=emily.wang10@mail.mcgill.ca
-
-# Submit ROPE job
-ROPE_JOB=$(sbatch --mail-user=$EMAIL --parsable scripts/slurm_run_spotpy.sh --algorithm rope --num-iterations 800)
-
-# Submit Monte Carlo job (depends on ROPE completion)
-MC_JOB=$(sbatch --mail-user=$EMAIL --parsable --dependency=afterok:$ROPE_JOB scripts/slurm_run_spotpy.sh --algorithm mc --mc-repetitions 1000)
-
-# Submit SCE-UA job (depends on Monte Carlo completion)
-sbatch --mail-user=$EMAIL --dependency=afterok:$MC_JOB scripts/slurm_run_spotpy.sh --algorithm sceua --num-iterations 800
-```
-
-### Algorithm-Specific Parameters
-
-**ROPE Parameters:**
-
-- `--repetitions-first-run`: Number of repetitions for the first subset
-- `--subsets`: Number of parameter space refinement steps
-- `--percentage-first-run`: Percentage of best runs used for next step in first subset
-- `--percentage-following-runs`: Percentage of best runs used in subsequent subsets
-
-**Monte Carlo Parameters:**
-
-- `--mc-repetitions`: Total number of random samples to generate
-
-**SCE-UA Parameters:**
-
-- `--sceua-ngs`: Number of complexes in the population
-- `--sceua-kstop`: Shuffling loops before termination check
-- `--sceua-peps`: Convergence tolerance percentage
-- `--sceua-pcento`: Population range percentage for termination
-- `--sceua-ngs-max`: Maximum number of complexes
+This will optimize 4 parameters, as selected by the parameter ranking method (default: random_forest). You can also use the `--param-ranking` option to change the ranking method (e.g., `--param-ranking morris`).
 
 ### Mock simulation with SLURM
 

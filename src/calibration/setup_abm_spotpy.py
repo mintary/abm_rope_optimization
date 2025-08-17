@@ -149,7 +149,7 @@ class spotpyABM(object):
 
         results: list[float] = []
 
-        # Run simulation for GH2, GH5, then GH10
+        # Run simulation for each config file
         for config_file_path in self.config_file_paths:
             biomarker_output_dir = run_id_dir / "output"
             biomarker_output_dir.mkdir(parents=True, exist_ok=True)
@@ -168,8 +168,6 @@ class spotpyABM(object):
                 tracked_ticks=self.tracked_ticks,
                 cwd=run_id_dir, # We set this to the cwd where the simulation is run
             )
-
-            print(f"Simulation results for config {config_file_path.name}: {run_results}")
 
             # Flatten the result into a single list with the format:
             # [gh2_collagen_72h, gh2_cell_72h, gh2_collagen_144h, gh2_cell_144h, ...]

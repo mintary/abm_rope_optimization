@@ -126,43 +126,43 @@ def run_multiple_validations(
     validation_dir.mkdir(parents=True, exist_ok=True)
     
     for config_file_name in config_files:
-        config_name = config_file_name.replace("config_", "").replace(".txt", "")
+        config_base = Path(config_file_name).name  # get just the filename
+        config_name = config_base.replace("config_", "").replace(".txt", "")
         validation_logger.info(f"Starting validation for configuration: {config_name}")
-        
+
         config_results: Dict[int, Dict[str, List[float]]] = {}
-        
+
         for run_idx in range(runs_per_config):
             validation_logger.info(f"  Run {run_idx+1}/{runs_per_config} for {config_name}")
-            
+
             run_id = f"validation_{config_name}"
             run_dir = subprocess_run_dir / run_id
             run_dir.mkdir(parents=True, exist_ok=True)
-            
+
             run_bin_dir = run_dir / "bin"
             run_bin_dir.mkdir(parents=True, exist_ok=True)
             for item in bin_dir.iterdir():
                 if item.is_file():
                     dest = run_bin_dir / item.name
                     shutil.copy(item, dest)
-            
+
             run_config_dir = run_dir / "configFiles"
             run_config_dir.mkdir(parents=True, exist_ok=True)
             source_config = config_file_dir / config_file_name
-            dest_config = run_config_dir / config_file_name
+            dest_config = run_config_dir / config_base
             shutil.copy(source_config, dest_config)
 
             validation_logger.info(f"  Preparing sample file for run {run_idx} in {run_dir}")
-            
 
             sample_path = run_dir / "Sample.txt"
 
             prepare_sample(parameter_values, all_params, chosen_params, sample_path)
-            
+
             biomarker_output_dir = run_dir / "output"
             biomarker_output_dir.mkdir(parents=True, exist_ok=True)
             bin_stderr_path = biomarker_output_dir / "ABM_simulation_stderr.txt"
             bin_stdout_path = biomarker_output_dir / "ABM_simulation_stdout.txt"
-            
+
             sim_results = run_abm_simulation(
                 bin_path=run_bin_dir,
                 bin_stderr_path=bin_stderr_path,
@@ -175,14 +175,14 @@ def run_multiple_validations(
                 tracked_ticks=tracked_ticks,
                 cwd=run_dir,
             )
-            
+
             for tick, tick_data in sim_results.items():
                 if tick not in config_results:
                     config_results[tick] = {biomarker: [] for biomarker in tracked_biomarkers}
-                
+
                 for biomarker, value in tick_data.items():
                     config_results[tick][biomarker].append(value)
-        
+
         results[config_name] = config_results
     
     save_validation_results(results, validation_dir / "validation_results.json")
@@ -310,7 +310,10 @@ def convert_df_to_dict(df: pd.DataFrame):
     exp_data_dict: Dict[str, Dict[int, Dict[str, float]]] = {}
     
     for _, row in df.iterrows():
+        # Strip 'config_Scaffold_' prefix from group name to match expected keys (e.g., 'GH2')
         group = row['group']
+        if isinstance(group, str) and group.startswith('config_Scaffold_'):
+            group = group.replace('config_Scaffold_', '')
         time_hour = int(row['time_hour'])
 
         cell_count = float(round(row['small_scaffold_cell_avg']))
@@ -438,8 +441,8 @@ def convert_numpy_types(obj):
               help="Number of runs per configuration (default: 3)")
 @click.option('--output-dir', '-o', type=click.Path(file_okay=False, dir_okay=True), 
               default="output/validation", help="Directory to save validation outputs")
-@click.option('--config-files', multiple=True, default=["config_Scaffold_GH2.txt", "config_Scaffold_GH5.txt", "config_Scaffold_GH10.txt"],
-              help="Configuration files to use (can be specified multiple times)")
+@click.option('--config-file', '-cf', multiple=True, default=["config_Scaffold_GH2.txt", "config_Scaffold_GH5.txt", "config_Scaffold_GH10.txt"],
+              help="Configuration file to use (specify once per file)")
 @click.option('--use-csv', is_flag=True, 
               help="Load parameters from CSV file instead of JSON")
 @click.option('--num-params', type=int, default=5,
@@ -447,20 +450,20 @@ def convert_numpy_types(obj):
 @click.option('--log-level', '-ll', default='INFO', type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], case_sensitive=False), 
               help="Set the logging level.")
 def validate(
-        param_file, 
-        run_dir, 
-        bin_dir, 
-        config_dir, 
-        sensitivity_analysis_csv, 
-        param_ranking, 
-        param_num,
-        exp_data, 
-        runs, 
-        output_dir, 
-        config_files, 
-        use_csv, 
-        num_params,
-        log_level):
+    param_file, 
+    run_dir, 
+    bin_dir, 
+    config_dir, 
+    sensitivity_analysis_csv, 
+    param_ranking, 
+    param_num,
+    exp_data, 
+    runs, 
+    output_dir, 
+    config_file, 
+    use_csv, 
+    num_params,
+    log_level):
     """
     Validate ABM model with optimized parameters.
     
@@ -500,7 +503,7 @@ def validate(
         else:
             raise ValueError("Unrecognized parameter file format. Expected 'best_parameter_set' or 'best_parameters' key.")
     
-    main_logger.info(f"Configuration files: {list(config_files)}")
+    main_logger.info(f"Configuration files: {list(config_file)}")
 
     # Get all the parameter values
     all_params = process_parameters_from_csv(sensitivity_analysis_csv)
@@ -516,7 +519,7 @@ def validate(
         bin_dir=Path(bin_dir),
         config_file_dir=Path(config_dir),
         experimental_data_file=Path(exp_data),
-        config_files=list(config_files),
+        config_files=list(config_file),
         runs_per_config=runs,
         output_dir=Path(output_dir)
     )
@@ -552,7 +555,7 @@ def validate(
             main_logger.info(f"    Relative error: {rel_error:.1f}%")
             main_logger.info(f"    Within 95% CI: {'YES' if within_ci else 'NO'}")
     
-    main_logger.info(f"\nDetailed results saved to: {output_dir}")
+    main_logger.info(f"Detailed results saved to: {output_dir}")
     main_logger.info("Main process log saved to 'output/validation/validation_main.log'.")
     main_logger.info("Validation completed successfully!")
 
